@@ -1,0 +1,47 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "department": {
+      "type": "choice",
+      "choice": "billing",
+      "probabilities": {
+        "billing": 0.88,
+        "other": 0.0,
+        "technical": 0.12
+      },
+      "confidence": 0.81
+    },
+    "frustration": {
+      "type": "score",
+      "score": 1.05,
+      "legend": {
+        "0": "Calm and neutral",
+        "1": "Concerned but civil",
+        "2": "Very angry or strong language"
+      },
+      "probabilities": {
+        "0": 0.0,
+        "1": 0.95,
+        "2": 0.05
+      },
+      "confidence": 0.92
+    },
+    "is_urgent": {
+      "type": "noul",
+      "noul": 0.95
+    },
+    "owner": {
+      "type": "choice",
+      "choice": "dana",
+      "probabilities": {
+        "dana": 0.7,
+        "kai": 0.3
+      },
+      "confidence": 0.7
+    }
+  },
+  "usage": {
+    "input_tokens": 307,
+    "output_tokens": 34
+  }
+}

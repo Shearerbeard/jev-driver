@@ -1,0 +1,54 @@
+{
+  "state": {
+    "ticket": "I was charged twice and need the duplicate refunded today.",
+    "sla_hours": 47.5,
+    "account_tier": "pro"
+  },
+  "model": "jev-1.13.0",
+  "questions": {
+    "department": {
+      "type": "choice",
+      "instructions": "Which team should handle this ticket?",
+      "criteria": {
+        "billing": "Payments, invoicing, and refunds (Acme Corp)",
+        "other": "None of the above clearly fits",
+        "technical": "Bugs, outages, and Loom integrations"
+      }
+    },
+    "frustration": {
+      "type": "score",
+      "instructions": "How frustrated does the customer appear?",
+      "criteria": [
+        "Calm and neutral",
+        "Concerned but civil",
+        "Very angry or strong language"
+      ]
+    },
+    "is_urgent": {
+      "type": "noul",
+      "instructions": "Does this ticket convey time pressure?",
+      "criteria": {
+        "true": "Explicit deadline or costly delay",
+        "false": "No time pressure expressed"
+      }
+    },
+    "owner": {
+      "type": "choice",
+      "instructions": {
+        "application": {
+          "id": "app_913",
+          "stated_employer": "Alphabet"
+        },
+        "candidate": {
+          "location": "Oakland, California",
+          "name": "John Smith"
+        },
+        "question": "Is this application for the same person as `candidate`?"
+      },
+      "criteria": {
+        "dana": "Payments specialist, 4 years tenure",
+        "kai": "Integrations specialist, 2 years tenure"
+      }
+    }
+  }
+}

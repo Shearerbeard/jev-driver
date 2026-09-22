@@ -1,0 +1,20 @@
+[package]
+name = "testapp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Red-first acceptance harness for jev-driver: ticket triage demo"
+
+[[bin]]
+name = "triage"
+path = "src/main.rs"
+
+[dependencies]
+jev-driver = { path = "../jev-driver" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+
+[lints]
+workspace = true

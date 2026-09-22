@@ -1,0 +1,18 @@
+[package]
+name = "jev-driver-macros"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Derive macros for jev-driver (JevChoice, JevScore, JevNoul, JevQuestions, JevState, JevInstructions)"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+
+[lints]
+workspace = true

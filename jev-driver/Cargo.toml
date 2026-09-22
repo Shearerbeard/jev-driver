@@ -1,0 +1,32 @@
+[package]
+name = "jev-driver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Typed Rust driver for TypeSafe AI's Jev (System One) decision model"
+
+[features]
+default = []
+test-support = []
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+async-trait = { workspace = true }
+url = { workspace = true }
+tracing = { workspace = true }
+dotenvy = { workspace = true }
+jev-driver-macros = { path = "../jev-driver-macros", version = "0.1.0" }
+
+[dev-dependencies]
+jev-driver = { path = ".", features = ["test-support"] }
+tokio = { version = "1", features = ["full"] }
+trybuild = { workspace = true }
+
+[lints]
+workspace = true
