@@ -13,9 +13,10 @@ rubric becomes an enum's variants, your thresholds become methods on
 probability types. Unknown option keys, unasked answers, missing criteria, and
 unnormalized distributions are all errors, not silent defaults.
 
-Status: 0.1.0 prototype, unpublished (no git remote yet). Consume it as a
-path dependency (`jev-driver = { path = "…" }`) until a repository URL
-exists. Workspace layout at the bottom.
+Status: 0.1.0 prototype in a private repo
+(github.com/Shearerbeard/jev-driver), not yet on crates.io. Consume it as
+a path dependency (`jev-driver = { path = "…" }`) until a release is
+published. Workspace layout at the bottom.
 
 ## Quickstart: the derive surface
 

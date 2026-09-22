@@ -33,5 +33,6 @@ targets, not raw `cargo clippy --all-targets`.
 
 ## Status
 
-0.1.0 prototype, master branch, no remote yet. Publish is deferred pending a
-repository URL; `repository` field in Cargo.toml is intentionally absent.
+0.1.0 prototype, master branch. Remote: github.com/Shearerbeard/jev-driver
+(private). The `repository` field is set in Cargo.toml; a crates.io publish
+is deferred until the repo goes public.

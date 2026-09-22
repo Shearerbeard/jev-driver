@@ -48,8 +48,8 @@ typed answers, no false rejections from the stricter key checks).
   `iter_names()`, `option_null()`; unreachable static-empty-score branch.
 - Malformed `#[jev]` field attrs are swallowed silently in state.rs.
 - `Limits` is a constants table wearing a pub-fields struct.
-- Publish blockers: no git remote, `repository` field absent,
-  proc-macro-crate not adopted.
+- Publish blockers: repo is private and `proc-macro-crate` not adopted
+  (remote added and `repository` field set 2026-09-22).
 - No `Retry-After`/jitter; in-flight requests not abortable.
 
 ## Relationship to agent-driver-rs
