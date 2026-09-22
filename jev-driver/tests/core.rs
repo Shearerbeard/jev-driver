@@ -252,6 +252,48 @@ fn missing_zero_probability_entry_is_rejected() -> Result<(), Box<dyn std::error
 }
 
 #[test]
+fn missing_zero_probability_level_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let question = QuestionSpec::Score {
+        instructions: Instructions::text("rate"),
+        criteria: vec![Instructions::text("low"), Instructions::text("high")],
+        criteria_source: CriteriaSource::Static,
+    };
+    let decision = DecisionSchema::new(None)
+        .with_question("rate", question)
+        .query()
+        .state(json!({ "s": 1 }))?
+        .ask("rate")?
+        .build()?;
+
+    let response: WireResponse = serde_json::from_value(json!({
+        "model": "jev-1.13.0",
+        "answers": {
+            "rate": {
+                "type": "score",
+                "score": 0.0,
+                "legend": { "0": "low" },
+                "probabilities": { "0": 1.0 },
+                "confidence": 0.9
+            }
+        },
+        "usage": { "input_tokens": 10, "output_tokens": 2 }
+    }))?;
+    let err = Answers::from_wire(response, &decision)
+        .expect_err("omitting a zero-probability rubric level must fail even though the sum is 1");
+    match err {
+        JevError::MalformedAnswer { id, detail } => {
+            assert_eq!(id, "rate", "error names the question");
+            assert!(
+                detail.contains("level 1"),
+                "error names the missing level: {detail}"
+            );
+        }
+        other => panic!("expected MalformedAnswer, got {other:?}"),
+    }
+    Ok(())
+}
+
+#[test]
 fn out_of_range_score_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
     let question = QuestionSpec::Score {
         instructions: Instructions::text("rate"),
@@ -300,6 +342,7 @@ fn duplicate_question_ids_fail_at_compose() -> Result<(), Box<dyn std::error::Er
     struct Second;
 
     #[derive(JevQuestions)]
+    #[allow(dead_code, reason = "compose reads the field types, not the values")]
     struct Set {
         first: First,
         second: Second,

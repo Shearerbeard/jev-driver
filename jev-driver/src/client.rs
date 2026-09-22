@@ -230,7 +230,7 @@ impl JevClient {
 
     #[allow(
         clippy::wildcard_enum_match_arm,
-        reason = "the exhaustion rewrite only touches the two retryable variants; anything else passes through unchanged"
+        reason = "only the two retryable variants can reach this match; the wildcard re-wraps the error verbatim and stays unreachable while the retryable guard above returns other variants early"
     )]
     async fn evaluate_raw_with(
         &self,
