@@ -1,9 +1,21 @@
 # Gate A review — jev-driver full implementation
 
+Canonical durable copy of this handoff: `/home/shearerbeard/dev/jev-driver/NEXT-SESSION.md`
+(committed in that repo). This `.review/` directory is untracked by design —
+if it is lost, use the canonical copy.
+
+Diff anchors, to avoid misreads:
+- `.review/jev-driver-full.diff` = empty tree .. c507dc3 (pre-fix implementation)
+- `.review/jev-driver-fix.diff` = c507dc3 .. a905b68 (the gate fixes; ALREADY
+  staged — regenerate only if the repo moved)
+- Test counts: 26 green = pre-fix state (packet README); 31 green = post-fix
+  re-verification (same code after the fixes below). Not a contradiction.
+
 Reviewer: frontier-reviewer (kimi-code-plan-global/k3) — dispatched because the
 rust-reviewer pin (kimi-for-coding/kimi-for-coding) was unavailable at the time.
 The user has since fixed the rust-reviewer pin; the NEXT session should use
-rust-reviewer for the fix-diff verification.
+rust-reviewer for the fix-diff verification (verify the pin resolves a model
+before dispatch — the claim is not checkable from inside this workspace).
 
 ## Verdict (original)
 
