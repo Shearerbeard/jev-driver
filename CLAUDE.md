@@ -12,11 +12,9 @@ strictness contract to the make targets. Do not restate that here.
 
 ## Commands
 
-```sh
-make check   # fmt + clippy (lib crates) + cargo test - the default gate
-make red     # testapp acceptance harness (offline fixtures)
-make live    # live API round-trip; needs TYPESAFE_API_KEY (.env, chmod 600)
-```
+Make targets and the live-smoke setup are documented in `README.md`
+("Testing and the live smoke"); `TYPESAFE_API_KEY` details live there too.
+`make check` is the default gate before any commit.
 
 Clippy scope note: `make check` lints the library crates only. The `ui` and
 `testapp` targets intentionally trip restriction lints; use the Makefile

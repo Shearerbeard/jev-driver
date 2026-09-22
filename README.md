@@ -13,7 +13,9 @@ rubric becomes an enum's variants, your thresholds become methods on
 probability types. Unknown option keys, unasked answers, missing criteria, and
 unnormalized distributions are all errors, not silent defaults.
 
-Status: 0.1.0 prototype. Workspace layout at the bottom.
+Status: 0.1.0 prototype, unpublished (no git remote yet). Consume it as a
+path dependency (`jev-driver = { path = "…" }`) until a repository URL
+exists. Workspace layout at the bottom.
 
 ## Quickstart: the derive surface
 
@@ -215,3 +217,8 @@ root (`chmod 600`). Expect typed answers in roughly 70-500ms and a usage line
 with input/output token counts. Failure signatures: a 401 means the key;
 logged backoff retries mean rate limiting (429) or overload (529). The run
 succeeds if a retry lands.
+
+## License
+
+Dual-licensed under MIT or Apache-2.0, at your option (`LICENSE-MIT`,
+`LICENSE-APACHE`).
