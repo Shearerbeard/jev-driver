@@ -1,0 +1,272 @@
+//! The Jev client: transport, retry (429/529), cancellation, and typed
+//! evaluation. The only module that talks HTTP.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use async_trait::async_trait;
+use tokio_util::sync::CancellationToken;
+use url::Url;
+
+use crate::answer::{Answers, FromAnswers};
+use crate::error::{JevError, JevResult};
+use crate::question::Decision;
+use crate::wire::{WireRequestBody, WireResponse};
+
+/// Default model pin. The moving `jev-latest` alias can silently change
+/// thresholds; pin by default.
+pub const DEFAULT_MODEL: &str = "jev-1.13.0";
+
+const DEFAULT_BASE_URL: &str = "https://api.typesafe.ai";
+const SYSTEMONE_PATH: &str = "v1/systemone";
+
+/// Retry policy for 429/529 responses.
+#[derive(Debug, Clone)]
+pub struct RetryConfig {
+    /// Maximum retries before surfacing the error.
+    pub max_retries: u32,
+    /// First backoff delay.
+    pub initial_interval: Duration,
+    /// Backoff ceiling.
+    pub max_interval: Duration,
+    /// Backoff multiplier.
+    pub multiplier: f64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 3,
+            initial_interval: Duration::from_millis(500),
+            max_interval: Duration::from_secs(30),
+            multiplier: 2.0,
+        }
+    }
+}
+
+impl RetryConfig {
+    /// Delay before retry `attempt` (0-based).
+    #[must_use]
+    pub fn delay_for(&self, attempt: u32) -> Duration {
+        let factor = self.multiplier.powi(attempt.clamp(0, 16) as i32);
+        let delay_ms = self.initial_interval.as_secs_f64() * factor;
+        Duration::from_secs_f64(delay_ms.clamp(0.001, self.max_interval.as_secs_f64()))
+    }
+}
+
+/// Client configuration.
+#[derive(Debug, Clone)]
+pub struct JevConfig {
+    /// API key (`TYPESAFE_API_KEY`).
+    pub api_key: String,
+    /// API base URL (defaults to `https://api.typesafe.ai`).
+    pub base_url: Url,
+    /// Pinned model id.
+    pub model: String,
+    /// Request timeout.
+    pub timeout: Duration,
+    /// Retry policy.
+    pub retry: RetryConfig,
+}
+
+impl JevConfig {
+    /// Builds a config from the environment: `TYPESAFE_API_KEY` (required),
+    /// `TYPESAFE_BASE_URL` and `TYPESAFE_MODEL` (optional). Loads a
+    /// workspace `.env` if present.
+    pub fn from_env() -> JevResult<Self> {
+        let _dotenv = dotenvy::dotenv();
+        let api_key = std::env::var("TYPESAFE_API_KEY").map_err(|_| JevError::Unauthorized)?;
+        Ok(Self {
+            api_key,
+            base_url: match std::env::var("TYPESAFE_BASE_URL") {
+                Ok(raw) => raw.parse().map_err(|_| {
+                    JevError::Transport(format!("invalid TYPESAFE_BASE_URL: {raw}"))
+                })?,
+                Err(_) => Url::parse(DEFAULT_BASE_URL)
+                    .map_err(|e| JevError::Transport(format!("invalid default base URL: {e}")))?,
+            },
+            model: std::env::var("TYPESAFE_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_owned()),
+            timeout: Duration::from_secs(30),
+            retry: RetryConfig::default(),
+        })
+    }
+}
+
+/// Pluggable transport so tests never touch the network.
+#[async_trait]
+pub trait Transport: Send + Sync {
+    /// POSTs the serialized request body to the systemone endpoint.
+    async fn post_systemone(&self, body: String) -> JevResult<WireResponse>;
+}
+
+/// Production transport over reqwest.
+pub struct ReqwestTransport {
+    http: reqwest::Client,
+    url: Url,
+    api_key: String,
+}
+
+#[async_trait]
+impl Transport for ReqwestTransport {
+    async fn post_systemone(&self, body: String) -> JevResult<WireResponse> {
+        let response = self
+            .http
+            .post(self.url.clone())
+            .bearer_auth(&self.api_key)
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| JevError::Transport(format!("request failed: {e}")))?;
+        let status = response.status();
+        if status.is_success() {
+            return response
+                .json::<WireResponse>()
+                .await
+                .map_err(|e| JevError::Transport(format!("invalid response body: {e}")));
+        }
+        let text = response
+            .text()
+            .await
+            .map_err(|e| JevError::Transport(format!("failed reading error body: {e}")))?;
+        if status.as_u16() == 401 {
+            return Err(JevError::Unauthorized);
+        }
+        if status.as_u16() == 422 {
+            return Err(JevError::InvalidRequest(text));
+        }
+        if status.as_u16() == 429 {
+            return Err(JevError::RateLimited { retries: 0 });
+        }
+        if status.as_u16() == 529 {
+            return Err(JevError::Overloaded { retries: 0 });
+        }
+        Err(JevError::Transport(format!(
+            "unexpected status {status}: {text}"
+        )))
+    }
+}
+
+/// The client. Cheap to clone via `Arc` internally.
+pub struct JevClient {
+    transport: Arc<dyn Transport>,
+    model: String,
+    retry: RetryConfig,
+}
+
+impl JevClient {
+    /// Builds a production client from an explicit config.
+    pub fn new(config: JevConfig) -> JevResult<Self> {
+        let http = reqwest::Client::builder()
+            .timeout(config.timeout)
+            .build()
+            .map_err(|e| JevError::Transport(format!("http client init failed: {e}")))?;
+        let url = config
+            .base_url
+            .join(SYSTEMONE_PATH)
+            .map_err(|e| JevError::Transport(format!("invalid base URL join: {e}")))?;
+        Ok(Self {
+            transport: Arc::new(ReqwestTransport {
+                http,
+                url,
+                api_key: config.api_key,
+            }),
+            model: config.model,
+            retry: config.retry,
+        })
+    }
+
+    /// Builds a production client from the environment.
+    pub fn from_env() -> JevResult<Self> {
+        Self::new(JevConfig::from_env()?)
+    }
+
+    /// Test-only: runs against a scripted [`Transport`](crate::fake::FakeTransport).
+    #[cfg(feature = "test-support")]
+    pub fn with_transport(
+        transport: Arc<dyn Transport>,
+        model: impl Into<String>,
+        retry: RetryConfig,
+    ) -> Self {
+        Self {
+            transport,
+            model: model.into(),
+            retry,
+        }
+    }
+
+    /// Evaluates a decision and parses the answers into a derived typed
+    /// set (strict).
+    pub async fn evaluate<T: FromAnswers>(&self, decision: &Decision) -> JevResult<T> {
+        let answers = self.evaluate_raw(decision).await?;
+        T::from_answers(&answers)
+    }
+
+    /// Evaluates a decision, returning validated dynamic answers.
+    pub async fn evaluate_raw(&self, decision: &Decision) -> JevResult<Answers> {
+        self.evaluate_raw_with(decision, None).await
+    }
+
+    /// Evaluates with a cancellation token.
+    pub async fn evaluate_raw_with_cancellation(
+        &self,
+        decision: &Decision,
+        token: &CancellationToken,
+    ) -> JevResult<Answers> {
+        self.evaluate_raw_with(decision, Some(token)).await
+    }
+
+    async fn evaluate_raw_with(
+        &self,
+        decision: &Decision,
+        token: Option<&CancellationToken>,
+    ) -> JevResult<Answers> {
+        let body = serde_json::to_string(&WireRequestBody {
+            state: decision.state(),
+            model: &self.model,
+            questions: decision.questions(),
+        })?;
+        let mut attempt: u32 = 0;
+        loop {
+            match self.transport.post_systemone(body.clone()).await {
+                Ok(response) => return Answers::from_wire(response, decision),
+                Err(e) => {
+                    if !matches!(
+                        e,
+                        JevError::RateLimited { .. } | JevError::Overloaded { .. }
+                    ) {
+                        return Err(e);
+                    }
+                    if attempt >= self.retry.max_retries {
+                        return Err(match e {
+                            JevError::RateLimited { .. } => {
+                                JevError::RateLimited { retries: attempt }
+                            }
+                            JevError::Overloaded { .. } => {
+                                JevError::Overloaded { retries: attempt }
+                            }
+                            other => other,
+                        });
+                    }
+                    let delay = self.retry.delay_for(attempt);
+                    tracing::warn!(
+                        attempt,
+                        delay_ms = delay.as_millis() as u64,
+                        "retryable error, backing off"
+                    );
+                    attempt += 1;
+                    match token {
+                        Some(t) => {
+                            tokio::select! {
+                                biased;
+                                () = t.cancelled() => return Err(JevError::Cancelled),
+                                () = tokio::time::sleep(delay) => {}
+                            }
+                        }
+                        None => tokio::time::sleep(delay).await,
+                    }
+                }
+            }
+        }
+    }
+}

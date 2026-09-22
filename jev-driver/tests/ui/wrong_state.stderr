@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/ui/wrong_state.rs:34:33
+   |
+34 |     let _ = Qs::request().state(&wrong);
+   |                           ----- ^^^^^^ expected `&RealState`, found `&WrongState`
+   |                           |
+   |                           arguments to this method are incorrect
+   |
+   = note: expected reference `&RealState`
+              found reference `&WrongState`
+note: method defined here
+  --> src/question.rs
+   |
+   |     pub fn state(mut self, state: &Q::State) -> JevResult<Self> {
+   |            ^^^^^

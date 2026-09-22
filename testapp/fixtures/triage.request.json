@@ -40,8 +40,8 @@
           "stated_employer": "Alphabet"
         },
         "candidate": {
-          "location": "Oakland, California",
-          "name": "John Smith"
+          "name": "John Smith",
+          "location": "Oakland, California"
         },
         "question": "Is this application for the same person as `candidate`?"
       },

@@ -1,0 +1,8 @@
+error: JevInstructions question references `nam` but the struct has no such field
+ --> tests/ui/bad_backtick.rs:6:1
+  |
+6 | / #[jev(question = "Is this the same person as `nam`?")]
+7 | | struct SamePerson {
+8 | |     name: String,
+9 | | }
+  | |_^

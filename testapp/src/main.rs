@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use jev_driver::prelude::*;
 use testapp::questions;
-use testapp::questions::TicketTriageAnswers;
+use testapp::questions::{Department, TicketTriageAnswers};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,7 +32,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("== jev-driver testapp: ticket triage ==");
     println!("mode: {}", if live { "live" } else { "offline fixture" });
     println!("model: {} (in {} ms)", raw.model, elapsed.as_millis());
-    println!("usage: {} in / {} out tokens", raw.usage.input_tokens, raw.usage.output_tokens);
+    println!(
+        "usage: {} in / {} out tokens",
+        raw.usage.input_tokens, raw.usage.output_tokens
+    );
     println!();
     println!(
         "department  -> {:?}  confidence {:.2} act(0.80)={}",
@@ -42,12 +45,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "  P(technical)={:.2}  P(other)={:.2}",
-        typed.department.probabilities.get(&Department::Technical).get(),
+        typed
+            .department
+            .probabilities
+            .get(&Department::Technical)
+            .get(),
         typed.department.probabilities.get(&Department::Other).get(),
     );
     println!(
         "frustration -> {:?}  score {:.2} confidence {:.2}",
-        typed.frustration.nearest(),
+        typed.frustration.nearest()?,
         typed.frustration.score,
         typed.frustration.confidence.get(),
     );

@@ -11,7 +11,11 @@ fmt-check:
 	cargo fmt --all -- --check
 
 clippy:
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy --features test-support -- -D warnings
+
+# Clippy including test code (aspirational, mirrors agent-driver-rs)
+clippy-tests:
+	cargo clippy --all-targets --features test-support -- -D warnings
 
 test:
 	cargo test
