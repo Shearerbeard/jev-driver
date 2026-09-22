@@ -5,6 +5,8 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Typed Rust driver for TypeSafe AI's Jev (System One) decision model"
+keywords = ["jev", "typesafe", "decision", "llm", "ai"]
+categories = ["api-bindings", "development-tools"]
 
 [features]
 default = []

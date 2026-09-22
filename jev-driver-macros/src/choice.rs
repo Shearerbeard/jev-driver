@@ -4,9 +4,12 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::{backtick_refs, companion_ident, jev_string_attrs, required, to_snake_case};
+use crate::util::{
+    backtick_refs, companion_ident, jev_string_attrs, reject_generics, required, to_snake_case,
+};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
+    reject_generics(input, "JevChoice")?;
     let vis = &input.vis;
     let name = &input.ident;
     let attrs = jev_string_attrs(&input.attrs)?;
@@ -18,6 +21,7 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     };
 
     let mut variants = Vec::new();
+    let mut seen_keys = std::collections::BTreeSet::new();
     for variant in &data.variants {
         if !matches!(variant.fields, Fields::Unit) {
             return Err(syn::Error::new_spanned(
@@ -30,6 +34,12 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             .get("option")
             .cloned()
             .unwrap_or_else(|| to_snake_case(&variant.ident.to_string()));
+        if !seen_keys.insert(key.clone()) {
+            return Err(syn::Error::new_spanned(
+                variant,
+                format!("JevChoice option key `{key}` is used by more than one variant"),
+            ));
+        }
         let criteria = vattrs.get("criteria").cloned();
         variants.push((variant.ident.clone(), key, criteria));
     }
@@ -164,8 +174,8 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
 
             fn parse(
-                answer: &::jev_driver::Answer,
                 id: &str,
+                answer: &::jev_driver::Answer,
             ) -> ::jev_driver::JevResult<Self::Decision> {
                 ::jev_driver::ChoiceDecision::<#name>::parse(id, answer)
             }

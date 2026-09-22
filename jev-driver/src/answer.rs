@@ -229,7 +229,9 @@ impl Answers {
     }
 
     /// Bridge: re-parse these dynamic answers into a derived typed set,
-    /// cross-validating ids and option keys against your enums.
+    /// cross-validating ids and option keys against your enums. The same
+    /// completeness invariant holds in both layers: every option/level of
+    /// the asked question must carry a probability, zero-valued included.
     pub fn parse_as<T: FromAnswers>(&self) -> JevResult<T> {
         T::from_answers(self)
     }
@@ -259,6 +261,14 @@ fn parse_one(id: &str, question: &WireQuestion, answer: WireAnswer) -> JevResult
                     return Err(JevError::UnknownOption {
                         option: key.clone(),
                         id: id.to_owned(),
+                    });
+                }
+            }
+            for option in criteria.keys() {
+                if !probabilities.contains_key(option) {
+                    return Err(JevError::MalformedAnswer {
+                        id: id.to_owned(),
+                        detail: format!("missing probability for option `{option}`"),
                     });
                 }
             }
@@ -309,6 +319,23 @@ fn parse_one(id: &str, question: &WireQuestion, answer: WireAnswer) -> JevResult
                         ),
                     });
                 }
+            }
+            for level in 0..criteria.len() {
+                if !probabilities.contains_key(&level.to_string()) {
+                    return Err(JevError::MalformedAnswer {
+                        id: id.to_owned(),
+                        detail: format!("missing probability for level {level}"),
+                    });
+                }
+            }
+            let top_level = u32::try_from(criteria.len().saturating_sub(1))
+                .map(f64::from)
+                .unwrap_or(f64::INFINITY);
+            if !score.is_finite() || !(0.0..=top_level).contains(&score) {
+                return Err(JevError::MalformedAnswer {
+                    id: id.to_owned(),
+                    detail: format!("score {score} outside the {}-level rubric", criteria.len()),
+                });
             }
             let sum: f64 = probabilities.values().sum();
             if (sum - 1.0).abs() > SUM_TOLERANCE {

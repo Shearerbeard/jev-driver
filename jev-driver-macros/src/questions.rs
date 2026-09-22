@@ -5,9 +5,10 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::{companion_ident, jev_string_attrs};
+use crate::util::{companion_ident, jev_string_attrs, reject_generics};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
+    reject_generics(input, "JevQuestions")?;
     let vis = &input.vis;
     let name = &input.ident;
     let attrs = jev_string_attrs(&input.attrs)?;
@@ -108,12 +109,22 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             > {
                 let mut questions = ::std::collections::BTreeMap::new();
                 #(
-                    questions.insert(
-                        <#ftypes as ::jev_driver::QuestionType>::question_id().to_owned(),
-                        <#ftypes as ::jev_driver::QuestionType>::compose_wire(
-                            customization.#fidents.as_ref(),
-                        )?,
-                    );
+                    if questions
+                        .insert(
+                            <#ftypes as ::jev_driver::QuestionType>::question_id().to_owned(),
+                            <#ftypes as ::jev_driver::QuestionType>::compose_wire(
+                                customization.#fidents.as_ref(),
+                            )?,
+                        )
+                        .is_some()
+                    {
+                        return ::core::result::Result::Err(::jev_driver::JevError::Schema(
+                            ::std::format!(
+                                "duplicate question id `{}`",
+                                <#ftypes as ::jev_driver::QuestionType>::question_id()
+                            ),
+                        ));
+                    }
                 )*
                 ::core::result::Result::Ok(questions)
             }
@@ -132,10 +143,10 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
                 ::core::result::Result::Ok(Self {
                     #(
                         #fidents: <#ftypes as ::jev_driver::QuestionType>::parse(
+                            <#ftypes as ::jev_driver::QuestionType>::question_id(),
                             answers.get(
                                 <#ftypes as ::jev_driver::QuestionType>::question_id(),
                             )?,
-                            <#ftypes as ::jev_driver::QuestionType>::question_id(),
                         )?,
                     )*
                 })

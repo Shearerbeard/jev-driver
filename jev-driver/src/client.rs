@@ -45,12 +45,16 @@ impl Default for RetryConfig {
 }
 
 impl RetryConfig {
-    /// Delay before retry `attempt` (0-based).
+    /// Delay before retry `attempt` (0-based). Never panics: an
+    /// undersized `max_interval` floors the delay instead of tripping
+    /// `f64::clamp`.
     #[must_use]
     pub fn delay_for(&self, attempt: u32) -> Duration {
         let factor = self.multiplier.powi(attempt.clamp(0, 16) as i32);
-        let delay_ms = self.initial_interval.as_secs_f64() * factor;
-        Duration::from_secs_f64(delay_ms.clamp(0.001, self.max_interval.as_secs_f64()))
+        let delay_secs = self.initial_interval.as_secs_f64() * factor;
+        let ceiling = self.max_interval.as_secs_f64();
+        let floor = 0.001_f64.min(ceiling);
+        Duration::from_secs_f64(delay_secs.clamp(floor, ceiling))
     }
 }
 
@@ -147,7 +151,10 @@ impl Transport for ReqwestTransport {
     }
 }
 
-/// The client. Cheap to clone via `Arc` internally.
+/// The client. Cheap to clone (`Arc` internally); clones share transport
+/// and configuration. Backoff honors neither `Retry-After` headers nor
+/// jitter in 0.1.0.
+#[derive(Clone)]
 pub struct JevClient {
     transport: Arc<dyn Transport>,
     model: String,
@@ -207,15 +214,24 @@ impl JevClient {
         self.evaluate_raw_with(decision, None).await
     }
 
-    /// Evaluates with a cancellation token.
+    /// Evaluates with a cancellation token. The token is checked before
+    /// the first attempt and between retries; an already-in-flight HTTP
+    /// request is not abortable in 0.1.0.
     pub async fn evaluate_raw_with_cancellation(
         &self,
         decision: &Decision,
         token: &CancellationToken,
     ) -> JevResult<Answers> {
+        if token.is_cancelled() {
+            return Err(JevError::Cancelled);
+        }
         self.evaluate_raw_with(decision, Some(token)).await
     }
 
+    #[allow(
+        clippy::wildcard_enum_match_arm,
+        reason = "the exhaustion rewrite only touches the two retryable variants; anything else passes through unchanged"
+    )]
     async fn evaluate_raw_with(
         &self,
         decision: &Decision,

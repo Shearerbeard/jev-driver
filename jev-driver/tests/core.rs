@@ -207,3 +207,131 @@ fn dynamic_schema_queries_compose_decisions() -> Result<(), Box<dyn std::error::
     );
     Ok(())
 }
+
+fn choice_decision() -> Decision {
+    DynChoice::new("kind", Instructions::text("which kind"))
+        .option("a", Instructions::text("A"))
+        .option("b", Instructions::text("B"))
+        .build()
+        .and_then(|q| {
+            Decision::builder()
+                .state(json!({ "s": 1 }))
+                .and_then(|builder| builder.with_question(q))
+                .and_then(DecisionBuilder::build)
+        })
+        .unwrap_or_else(|e| panic!("decision must build: {e}"))
+}
+
+#[test]
+fn missing_zero_probability_entry_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let response: WireResponse = serde_json::from_value(json!({
+        "model": "jev-1.13.0",
+        "answers": {
+            "kind": {
+                "type": "choice",
+                "choice": "a",
+                "probabilities": { "a": 1.0 },
+                "confidence": 0.9
+            }
+        },
+        "usage": { "input_tokens": 10, "output_tokens": 2 }
+    }))?;
+    let err = Answers::from_wire(response, &choice_decision())
+        .expect_err("omitting a zero-probability option must fail even though the sum is 1");
+    match err {
+        JevError::MalformedAnswer { id, detail } => {
+            assert_eq!(id, "kind", "error names the question");
+            assert!(
+                detail.contains("`b`"),
+                "error names the missing option: {detail}"
+            );
+        }
+        other => panic!("expected MalformedAnswer, got {other:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn out_of_range_score_is_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let question = QuestionSpec::Score {
+        instructions: Instructions::text("rate"),
+        criteria: vec![Instructions::text("low"), Instructions::text("high")],
+        criteria_source: CriteriaSource::Static,
+    };
+    let decision = DecisionSchema::new(None)
+        .with_question("rate", question)
+        .query()
+        .state(json!({ "s": 1 }))?
+        .ask("rate")?
+        .build()?;
+
+    let response: WireResponse = serde_json::from_value(json!({
+        "model": "jev-1.13.0",
+        "answers": {
+            "rate": {
+                "type": "score",
+                "score": 17.0,
+                "legend": { "0": "low", "1": "high" },
+                "probabilities": { "0": 0.5, "1": 0.5 },
+                "confidence": 0.5
+            }
+        },
+        "usage": { "input_tokens": 10, "output_tokens": 2 }
+    }))?;
+    let err = Answers::from_wire(response, &decision)
+        .expect_err("a score of 17 on a 2-level rubric must fail");
+    assert!(
+        matches!(err, JevError::MalformedAnswer { .. }),
+        "expected MalformedAnswer, got {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn duplicate_question_ids_fail_at_compose() -> Result<(), Box<dyn std::error::Error>> {
+    use jev_driver::{JevNoul, JevQuestions};
+
+    #[derive(JevNoul)]
+    #[jev(id = "clash", instructions = "first")]
+    struct First;
+
+    #[derive(JevNoul)]
+    #[jev(id = "clash", instructions = "second")]
+    struct Second;
+
+    #[derive(JevQuestions)]
+    struct Set {
+        first: First,
+        second: Second,
+    }
+
+    let err = <Set as QuestionSet>::compose(&SetCustomization::default())
+        .expect_err("two field types sharing a question id must fail at compose");
+    match err {
+        JevError::Schema(detail) => {
+            assert!(
+                detail.contains("clash"),
+                "error names the duplicated id: {detail}"
+            );
+        }
+        other => panic!("expected Schema error, got {other:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn undersized_max_interval_never_panics() {
+    let retry = RetryConfig {
+        max_retries: 1,
+        initial_interval: std::time::Duration::from_secs(5),
+        max_interval: std::time::Duration::from_millis(1),
+        multiplier: 2.0,
+    };
+    for attempt in 0..4 {
+        let delay = retry.delay_for(attempt);
+        assert!(
+            delay <= std::time::Duration::from_millis(1),
+            "delay must floor at max_interval, got {delay:?} at attempt {attempt}"
+        );
+    }
+}

@@ -15,6 +15,10 @@ pub struct FakeTransport {
     requests: Mutex<Vec<String>>,
 }
 
+#[allow(
+    clippy::expect_used,
+    reason = "test-support code: a poisoned lock is a test bug and may panic"
+)]
 impl FakeTransport {
     /// Creates the transport with a result queue.
     pub fn new(scripted: Vec<JevResult<WireResponse>>) -> Self {
@@ -28,8 +32,8 @@ impl FakeTransport {
     pub fn requests(&self) -> Vec<String> {
         self.requests
             .lock()
-            .map(|guard| guard.clone())
-            .unwrap_or_default()
+            .expect("fake transport lock poisoned")
+            .clone()
     }
 }
 

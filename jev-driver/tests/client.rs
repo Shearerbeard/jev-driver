@@ -147,6 +147,29 @@ async fn cancellation_beats_backoff() -> Result<(), Box<dyn std::error::Error>> 
 }
 
 #[tokio::test]
+async fn pre_cancelled_token_never_sends() -> Result<(), Box<dyn std::error::Error>> {
+    let transport = Arc::new(FakeTransport::new(vec![ok_response()]));
+    let client = JevClient::with_transport(transport.clone(), "jev-1.13.0", fast_retry());
+
+    let token = CancellationToken::new();
+    token.cancel();
+
+    let err = client
+        .evaluate_raw_with_cancellation(&decision(), &token)
+        .await
+        .expect_err("a token cancelled before the call must prevent the first attempt");
+    assert!(
+        matches!(err, JevError::Cancelled),
+        "expected Cancelled, got {err:?}"
+    );
+    assert!(
+        transport.requests().is_empty(),
+        "no request may leave after pre-cancellation"
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn unauthorized_is_not_retried() -> Result<(), Box<dyn std::error::Error>> {
     let transport = Arc::new(FakeTransport::new(vec![Err(JevError::Unauthorized)]));
     let client = JevClient::with_transport(transport.clone(), "jev-1.13.0", fast_retry());

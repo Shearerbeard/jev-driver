@@ -74,7 +74,7 @@ pub trait QuestionType: Sized {
     }
 
     /// Parses one validated answer into the typed decision.
-    fn parse(answer: &crate::answer::Answer, id: &str) -> JevResult<Self::Decision>;
+    fn parse(id: &str, answer: &crate::answer::Answer) -> JevResult<Self::Decision>;
 }
 
 /// Implemented by structs deriving `JevQuestions`: the full question set.

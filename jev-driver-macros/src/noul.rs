@@ -4,9 +4,10 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::{jev_string_attrs, required};
+use crate::util::{jev_string_attrs, reject_generics, required};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
+    reject_generics(input, "JevNoul")?;
     let name = &input.ident;
     let attrs = jev_string_attrs(&input.attrs)?;
     let id = required(&attrs, "id", "JevNoul", input)?;
@@ -67,8 +68,8 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             }
 
             fn parse(
-                answer: &::jev_driver::Answer,
                 id: &str,
+                answer: &::jev_driver::Answer,
             ) -> ::jev_driver::JevResult<Self::Decision> {
                 ::jev_driver::NoulDecision::parse(id, answer)
             }

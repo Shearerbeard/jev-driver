@@ -55,6 +55,7 @@ pub enum QuestionSpec {
         /// What the model should decide.
         instructions: Instructions,
         /// Option key to description (`None` = no extra detail).
+        #[serde(default)]
         criteria: BTreeMap<String, Option<Instructions>>,
         /// Static literals or runtime editor values.
         #[serde(default, skip_serializing_if = "CriteriaSource::is_static")]
@@ -65,6 +66,7 @@ pub enum QuestionSpec {
         /// What the model should rate.
         instructions: Instructions,
         /// Ordered level descriptions.
+        #[serde(default)]
         criteria: Vec<Instructions>,
         /// Static literals or runtime editor values.
         #[serde(default, skip_serializing_if = "CriteriaSource::is_static")]
@@ -326,6 +328,11 @@ impl DecisionSchema {
 
 /// Dynamic (untyped) query composition: ask a subset of the schema's
 /// questions against some state, producing a wire-ready [`Decision`].
+///
+/// Note: questions marked `criteria_source: "runtime"` cannot be executed
+/// from this builder in 0.1.0 — runtime criteria are a derive-surface
+/// feature (criteria editors); use [`DynChoice`](crate::DynChoice) for
+/// fully dynamic composition.
 pub struct SchemaQueryBuilder<'a> {
     schema: &'a DecisionSchema,
     state: Option<serde_json::Value>,

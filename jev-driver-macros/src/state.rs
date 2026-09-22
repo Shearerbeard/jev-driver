@@ -4,9 +4,10 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::jev_string_attrs;
+use crate::util::{jev_string_attrs, reject_generics};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
+    reject_generics(input, "JevState")?;
     let name = &input.ident;
     let attrs = jev_string_attrs(&input.attrs)?;
     let describe = attrs.get("describe");

@@ -61,6 +61,18 @@ pub(crate) fn required<'a>(
     })
 }
 
+/// Rejects generic types with a clear message (only `JevInstructions`
+/// supports generics in 0.1.0).
+pub(crate) fn reject_generics(input: &DeriveInput, derive: &str) -> syn::Result<()> {
+    if input.generics.params.is_empty() {
+        return Ok(());
+    }
+    Err(syn::Error::new_spanned(
+        input,
+        format!("{derive} does not support generic types in 0.1.0"),
+    ))
+}
+
 /// Snake-cases a variant ident for the default option key: `Billing` ->
 /// `billing`. Override with `#[jev(option = "...")]` when unsure.
 pub(crate) fn to_snake_case(ident: &str) -> String {

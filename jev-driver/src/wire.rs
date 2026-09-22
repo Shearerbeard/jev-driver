@@ -44,22 +44,21 @@ impl Instructions {
     /// instructions form. Used by the `JevInstructions` derive.
     pub fn from_question(question: &str, data: &impl Serialize) -> JevResult<Self> {
         let value = serde_json::to_value(data)?;
-        let Some(mut map) = value.as_object().cloned() else {
+        let Some(map) = value.as_object().cloned() else {
             return Err(JevError::Schema(
                 "JevInstructions types must serialize to a JSON object".to_owned(),
             ));
         };
         let mut out = BTreeMap::new();
-        for (k, v) in &map {
+        for (k, v) in map {
             if k == "question" {
                 return Err(JevError::Schema(
                     "JevInstructions field named `question` collides with the question slot"
                         .to_owned(),
                 ));
             }
-            out.insert(k.clone(), v.clone());
+            out.insert(k, v);
         }
-        map.clear();
         out.insert("question".to_owned(), Value::String(question.to_owned()));
         Ok(Self::Structured(out))
     }
