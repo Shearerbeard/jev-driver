@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "frustration -> {:?}  score {:.2} confidence {:.2}",
         typed.frustration.nearest()?,
-        typed.frustration.score,
+        typed.frustration.score(),
         typed.frustration.confidence.get(),
     );
     println!(
@@ -65,8 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "owner       -> {}  confidence {:.2}",
-        owner.selected,
-        owner.confidence.get(),
+        owner.selected(),
+        owner.confidence().get(),
     );
     println!();
     println!("routing: {}", questions::route(&typed));

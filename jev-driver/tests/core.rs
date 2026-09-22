@@ -378,3 +378,88 @@ fn undersized_max_interval_never_panics() {
         );
     }
 }
+
+#[test]
+fn nan_or_pathological_multiplier_never_panics() {
+    let nan_retry = RetryConfig {
+        multiplier: f64::NAN,
+        ..Default::default()
+    };
+    let base = nan_retry.delay_for(0);
+    for attempt in 0..4 {
+        assert_eq!(
+            nan_retry.delay_for(attempt),
+            base,
+            "NaN multiplier must sanitize to a constant interval"
+        );
+    }
+
+    let overflow_retry = RetryConfig {
+        initial_interval: std::time::Duration::ZERO,
+        multiplier: f64::INFINITY,
+        ..Default::default()
+    };
+    let delay = overflow_retry.delay_for(2);
+    assert_eq!(
+        delay,
+        std::time::Duration::from_secs(30),
+        "0 * inf must clamp to max_interval, got {delay:?}"
+    );
+}
+
+#[test]
+fn extreme_durations_saturate_instead_of_panicking() {
+    let extreme = RetryConfig {
+        initial_interval: std::time::Duration::MAX,
+        max_interval: std::time::Duration::MAX,
+        multiplier: 1.0,
+        ..Default::default()
+    };
+    assert_eq!(
+        extreme.delay_for(0),
+        std::time::Duration::MAX,
+        "Duration::MAX intervals must saturate, not panic"
+    );
+}
+
+#[test]
+fn aliasing_level_keys_are_rejected() -> Result<(), Box<dyn std::error::Error>> {
+    let question = QuestionSpec::Score {
+        instructions: Instructions::text("rate"),
+        criteria: vec![Instructions::text("low"), Instructions::text("high")],
+        criteria_source: CriteriaSource::Static,
+    };
+    let decision = DecisionSchema::new(None)
+        .with_question("rate", question)
+        .query()
+        .state(json!({ "s": 1 }))?
+        .ask("rate")?
+        .build()?;
+
+    let response: WireResponse = serde_json::from_value(json!({
+        "model": "jev-1.13.0",
+        "answers": {
+            "rate": {
+                "type": "score",
+                "score": 0.5,
+                "legend": { "0": "low", "00": "low", "1": "high" },
+                "probabilities": { "0": 0.2, "00": 0.3, "1": 0.5 },
+                "confidence": 0.7
+            }
+        },
+        "usage": { "input_tokens": 10, "output_tokens": 2 }
+    }))?;
+    let err = Answers::from_wire(response, &decision)
+        .expect_err("level keys aliasing the same level must fail even though the sum is 1");
+    match err {
+        JevError::MalformedAnswer { id, detail } => {
+            assert_eq!(id, "rate", "error names the question");
+            assert!(
+                detail.contains("non-canonical"),
+                "error names the aliasing key: {detail}"
+            );
+        }
+        other => panic!("expected MalformedAnswer, got {other:?}"),
+    }
+    Ok(())
+}

@@ -80,28 +80,76 @@ fn checked_conf(id: &str, value: f64) -> JevResult<Confidence> {
 }
 
 /// Dynamic choice answer: option keys as strings, validated against the
-/// option set the request actually sent.
+/// option set the request actually sent. Built only by validation; read
+/// through the accessors so the checked invariants survive.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChoiceData {
     /// The selected option key.
-    pub selected: String,
+    selected: String,
     /// Every sent option to its probability.
-    pub probabilities: BTreeMap<String, Probability>,
+    probabilities: BTreeMap<String, Probability>,
     /// Derived certainty.
-    pub confidence: Confidence,
+    confidence: Confidence,
 }
 
-/// Dynamic score answer.
+impl ChoiceData {
+    /// The selected option key.
+    #[must_use]
+    pub fn selected(&self) -> &str {
+        &self.selected
+    }
+
+    /// Every sent option mapped to its probability.
+    #[must_use]
+    pub fn probabilities(&self) -> &BTreeMap<String, Probability> {
+        &self.probabilities
+    }
+
+    /// Derived certainty.
+    #[must_use]
+    pub const fn confidence(&self) -> Confidence {
+        self.confidence
+    }
+}
+
+/// Dynamic score answer. Built only by validation; read through the
+/// accessors.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScoreData {
     /// Probability-weighted level; may land between levels.
-    pub score: f64,
+    score: f64,
     /// Level number back to description.
-    pub legend: BTreeMap<String, String>,
+    legend: BTreeMap<String, String>,
     /// Level number to probability.
-    pub probabilities: BTreeMap<String, Probability>,
+    probabilities: BTreeMap<String, Probability>,
     /// Derived certainty.
-    pub confidence: Confidence,
+    confidence: Confidence,
+}
+
+impl ScoreData {
+    /// The probability-weighted level; may land between levels.
+    #[must_use]
+    pub const fn score(&self) -> f64 {
+        self.score
+    }
+
+    /// Level number back to description.
+    #[must_use]
+    pub fn legend(&self) -> &BTreeMap<String, String> {
+        &self.legend
+    }
+
+    /// Each level mapped to its probability.
+    #[must_use]
+    pub fn probabilities(&self) -> &BTreeMap<String, Probability> {
+        &self.probabilities
+    }
+
+    /// Derived certainty.
+    #[must_use]
+    pub const fn confidence(&self) -> Confidence {
+        self.confidence
+    }
 }
 
 /// A parsed, validated answer.
@@ -137,12 +185,15 @@ pub struct Usage {
 }
 
 /// The parsed response: validated against the decision that produced it.
+/// The answer map is private: values enter only through
+/// [`Answers::from_wire`], so the strictness contract is a property of
+/// the type, not of any one construction path.
 #[derive(Debug, Clone)]
 pub struct Answers {
     /// The model that answered.
     pub model: String,
     /// Validated answers, keyed by question id.
-    pub answers: BTreeMap<String, Answer>,
+    answers: BTreeMap<String, Answer>,
     /// Token accounting.
     pub usage: Usage,
 }
@@ -307,16 +358,25 @@ fn parse_one(id: &str, question: &WireQuestion, answer: WireAnswer) -> JevResult
                 });
             }
             for key in probabilities.keys() {
-                if key
+                let level = key
                     .parse::<usize>()
-                    .map_or(true, |level| level >= criteria.len())
-                {
+                    .map_err(|_| JevError::MalformedAnswer {
+                        id: id.to_owned(),
+                        detail: format!("non-numeric level key `{key}`"),
+                    })?;
+                if level >= criteria.len() {
                     return Err(JevError::MalformedAnswer {
                         id: id.to_owned(),
                         detail: format!(
                             "level key `{key}` outside the {}-level rubric",
                             criteria.len()
                         ),
+                    });
+                }
+                if *key != level.to_string() {
+                    return Err(JevError::MalformedAnswer {
+                        id: id.to_owned(),
+                        detail: format!("non-canonical level key `{key}` (expected `{level}`)"),
                     });
                 }
             }
@@ -444,10 +504,12 @@ impl<T: ChoiceOptions> ChoiceDecision<T> {
 /// Typed score decision: the weighted score plus the level distribution.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScoreDecision<T> {
-    /// Probability-weighted level; may land between levels.
-    pub score: f64,
-    /// Level index to probability.
-    pub probabilities: BTreeMap<u8, Probability>,
+    /// Probability-weighted level; may land between levels. Private: the
+    /// finite-and-in-range invariant must survive mutation.
+    score: f64,
+    /// Level index to probability. Private: parse guarantees every level
+    /// of the rubric is present, and that invariant must survive.
+    probabilities: BTreeMap<u8, Probability>,
     /// Derived certainty.
     pub confidence: Confidence,
     _marker: PhantomData<fn() -> T>,
@@ -477,6 +539,12 @@ impl<T: ScoreLevels> ScoreDecision<T> {
             }
             probabilities.insert(level, *value);
         }
+        if probabilities.len() != data.probabilities.len() {
+            return Err(JevError::MalformedAnswer {
+                id: id.to_owned(),
+                detail: "level keys alias the same level (e.g. `0` and `00`)".to_owned(),
+            });
+        }
         for level in 0..T::LEVELS {
             if !probabilities.contains_key(&level) {
                 return Err(JevError::MalformedAnswer {
@@ -493,16 +561,29 @@ impl<T: ScoreLevels> ScoreDecision<T> {
         })
     }
 
+    /// The probability-weighted level; may land between levels.
+    #[must_use]
+    pub const fn score(&self) -> f64 {
+        self.score
+    }
+
+    /// Probability of a specific rubric level (typed lookup). Parse
+    /// guarantees every level is present, so a miss is a logic bug and
+    /// reads as zero, mirroring [`ProbabilityMap::get`].
+    #[must_use]
+    pub fn level(&self, level: u8) -> Probability {
+        self.probabilities
+            .get(&level)
+            .copied()
+            .unwrap_or(Probability::ZERO)
+    }
+
     /// The rubric level with the highest probability, as your enum.
     pub fn nearest(&self) -> JevResult<T> {
         let mut best: u8 = 0;
         let mut best_p = Probability::ZERO;
         for level in 0..T::LEVELS {
-            let p = self
-                .probabilities
-                .get(&level)
-                .copied()
-                .unwrap_or(Probability::ZERO);
+            let p = self.level(level);
             if p.get() > best_p.get() {
                 best = level;
                 best_p = p;

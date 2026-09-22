@@ -60,7 +60,7 @@ async fn success_sends_pinned_model_and_parses_answers() -> Result<(), Box<dyn s
     assert_eq!(answers.usage.input_tokens, 100, "usage round-trips");
 
     let team = answers.choice("team")?;
-    assert_eq!(team.selected, "red", "selected option parses");
+    assert_eq!(team.selected(), "red", "selected option parses");
 
     let requests = transport.requests();
     assert_eq!(requests.len(), 1, "exactly one request on success");
@@ -86,7 +86,7 @@ async fn rate_limits_retry_until_success() -> Result<(), Box<dyn std::error::Err
 
     let answers = client.evaluate_raw(&decision()).await?;
     assert_eq!(
-        answers.choice("team")?.selected,
+        answers.choice("team")?.selected(),
         "red",
         "third attempt wins"
     );

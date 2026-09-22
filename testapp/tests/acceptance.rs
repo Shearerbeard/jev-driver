@@ -79,9 +79,9 @@ fn fixture_parses_into_typed_answers() -> Result<(), Box<dyn std::error::Error>>
         "score nearest level maps back to the rubric enum"
     );
     assert!(
-        (typed.frustration.score - 1.05).abs() < 1e-9,
+        (typed.frustration.score() - 1.05).abs() < 1e-9,
         "probability-weighted score round-trips, got {}",
-        typed.frustration.score
+        typed.frustration.score()
     );
 
     assert!(
@@ -99,18 +99,21 @@ fn dynamic_and_typed_layers_agree() -> Result<(), Box<dyn std::error::Error>> {
 
     let dyn_department = answers.choice("department")?;
     assert_eq!(
-        dyn_department.selected, "billing",
+        dyn_department.selected(),
+        "billing",
         "dynamic layer sees the raw option key"
     );
     let typed_key = typed.department.selected.option_name();
     assert_eq!(
-        dyn_department.selected, typed_key,
+        dyn_department.selected(),
+        typed_key,
         "typed enum maps to the same wire key"
     );
 
     let owner = answers.choice("owner")?;
     assert_eq!(
-        owner.selected, "dana",
+        owner.selected(),
+        "dana",
         "dynamic DynChoice answer validates against its supplied option set"
     );
     Ok(())

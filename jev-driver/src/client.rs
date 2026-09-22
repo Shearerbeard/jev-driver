@@ -29,7 +29,8 @@ pub struct RetryConfig {
     pub initial_interval: Duration,
     /// Backoff ceiling.
     pub max_interval: Duration,
-    /// Backoff multiplier.
+    /// Backoff multiplier. Values below 1.0 or non-finite (NaN) are
+    /// sanitized to 1.0 (constant interval) by [`RetryConfig::delay_for`].
     pub multiplier: f64,
 }
 
@@ -46,15 +47,22 @@ impl Default for RetryConfig {
 
 impl RetryConfig {
     /// Delay before retry `attempt` (0-based). Never panics: an
-    /// undersized `max_interval` floors the delay instead of tripping
-    /// `f64::clamp`.
+    /// undersized `max_interval` floors the delay, a `multiplier` below
+    /// 1.0 or NaN is treated as 1.0, a non-finite product clamps to
+    /// `max_interval`, and durations past `Duration::MAX` saturate at
+    /// `max_interval` instead of tripping the float conversion.
     #[must_use]
     pub fn delay_for(&self, attempt: u32) -> Duration {
-        let factor = self.multiplier.powi(attempt.clamp(0, 16) as i32);
-        let delay_secs = self.initial_interval.as_secs_f64() * factor;
+        let factor = self.multiplier.max(1.0).powi(attempt.clamp(0, 16) as i32);
         let ceiling = self.max_interval.as_secs_f64();
         let floor = 0.001_f64.min(ceiling);
-        Duration::from_secs_f64(delay_secs.clamp(floor, ceiling))
+        let raw = self.initial_interval.as_secs_f64() * factor;
+        // NaN arises only from 0 * inf; treat pathological config as the
+        // ceiling. `try_from_secs_f64` rejects values `Duration` cannot
+        // represent (e.g. extreme intervals rounding past `Duration::MAX`);
+        // saturate at `max_interval` rather than panicking.
+        let delay_secs = if raw.is_nan() { ceiling } else { raw };
+        Duration::try_from_secs_f64(delay_secs.clamp(floor, ceiling)).unwrap_or(self.max_interval)
     }
 }
 

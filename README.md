@@ -97,7 +97,8 @@ async fn main() -> JevResult<()> {
 
 `JevQuestions` generates `TicketTriageAnswers`: one typed field per question,
 with `selected` (your enum), the full `ProbabilityMap`, `Confidence`, and for
-scores a `score: f64` plus `nearest()` to snap to the closest rubric variant.
+scores a `score()` accessor plus `nearest()`, the rubric level with the
+highest probability.
 
 Runtime criteria: any derive-level question can defer its rubric text to call
 time via `customize`, so tenant-specific wording doesn't change your types:
@@ -156,20 +157,21 @@ Every answer, on every path, is validated against the question that asked it:
 - The answer set must cover exactly the asked questions: no missing, no extra.
 - A choice answer's distribution must name every option in the criteria,
   including zero-probability ones, and sum to 1 (within tolerance).
-- A score answer's distribution must cover every rubric level; the score must
-  be finite and inside the rubric's range.
+- A score answer's distribution must cover every rubric level with
+  canonical keys (`"0"`, `"1"` - aliases like `"00"` are rejected); the
+  score must be finite and inside the rubric's range.
 - Noul probabilities and confidence values must be finite and in [0, 1].
 
 The untyped layer (`Answers::from_wire`) and the typed layer (`parse_as` and
 the generated `parse` impls) enforce the same rules; the wire path re-checks
 what the typed layer would have caught, so a malformed response fails
-at the boundary with a `MalformedAnswer` error naming the question.
+at the boundary with a typed error naming the question.
 
-One asymmetry to know about before 1.0: the score range check lives in the
-wire path. If you hand-construct an `Answers`/`Answer::Score` value (the
-fields are public for untyped use) and `parse_as` it, level
-completeness is re-checked but the score's numeric range is not. Treat
-hand-built `Answers` as untrusted input until that lands.
+The guarantees are type-level: the answer types (`Answers`, `ChoiceData`,
+`ScoreData`, and the typed decisions' raw-`f64`/map fields) hold their
+invariant-bearing fields privately and offer read accessors, so a validated
+answer cannot be mutated or hand-built into an invalid one outside the
+crate.
 
 ## Client behavior and limits
 
