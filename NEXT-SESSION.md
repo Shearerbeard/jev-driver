@@ -1,43 +1,57 @@
-# Session close-out — jev-driver 0.1.0 prototype
+# Handoff - jev-driver 0.1.0 prototype, soundness-hardened
 
-Previous handoff (Gate A review, findings table, diff anchors) is preserved
-in git history: commit f2c15c6 and earlier. The untracked mirror lived in
-agent-driver-rs `.review/`; both copies were verified identical before this
-session started.
+State: complete and reviewed. Master has the close-out commits through
+1bcb123 plus this session's soundness pass (three dual-review rounds,
+frontier-reviewer + codex, final verdict PASS from both). Previous Gate A
+record and findings history: git history at f2c15c6 and earlier.
 
-## Session result (2026-09-22): prototype complete
+## What this session added (after the close-out)
 
-All four planned steps landed:
+A dual-reviewer audit (type soundness, DRY, code bloat) over the final
+tree, then two fix rounds until both reviewers signed off:
 
-1. **Gate A re-verification** — rust-reviewer (pin: kimi-for-coding) reviewed
-   the staged fix diff (c507dc3..a905b68): SIGN-OFF, all 15 frontier findings
-   verified as claimed. Three non-blocking notes:
-   - NIT-1 stale clippy-allow reason in client.rs — fixed this session
-   - NIT-2 score level-completeness loop untested — regression test added
-     (`missing_zero_probability_level_is_rejected`)
-   - MINOR-1 score range check bypassable via hand-constructed `Answers` —
-     documented in README's strictness contract; fix deferred (pre-1.0)
-2. **Gate M live smoke** — `make live` passed: 292ms round-trip, typed
-   answers for all three primitives, 604/102 tokens, no 401/429/529.
-3. **README** — rewritten to bus-test quality (quickstart both surfaces,
-   strictness contract incl. the MINOR-1 asymmetry, non-goals, live-smoke
-   instructions). CLAUDE.md and LICENSE files added. Vale: 0 findings.
-4. **Close-out** — this file, final commits.
+Round 1 found three cross-verified majors; all fixed:
+1. Score-level key aliases (`"00"`) passed wire validation and collapsed
+   in typed conversion. Now: wire path rejects non-canonical keys, typed
+   parse rejects collapsing keys.
+2. `RetryConfig::delay_for` panicked on NaN multipliers and
+   `Duration::MAX` overflow. Now: sub-unit/NaN multipliers sanitize to
+   1.0, non-finite products clamp to `max_interval`, the duration
+   conversion is checked and saturates at `max_interval`.
+3. Answer strictness was construction-path only. Now: `Answers.answers`,
+   `ChoiceData`, `ScoreData`, `ScoreDecision.score`, and
+   `ScoreDecision.probabilities` are private behind read accessors
+   (`selected()`, `probabilities()`, `confidence()`, `score()`, `legend()`,
+   `level()`); validated answers cannot be mutated or hand-built outside
+   the crate.
 
-Gates at close: `make check` green with zero warnings; 32 tests + 11
-acceptance tests green.
+Round 2 caught the incomplete first fix attempt (three unmigrated
+`.selected` reads broke acceptance-test compilation, `score: pub f64`
+still injectable, residual duration panic, two doc inaccuracies); round 3
+verified all closures. Lesson recorded: a piped `make red | grep | tail`
+masked a compile failure; gate exit codes must be checked directly.
 
-## Deferred (recorded, not blocking)
+Gates at handoff (exit codes verified): `make check` (24 tests, clippy
+clean), `make red` (11 acceptance), `make live` (202ms live round-trip,
+typed answers, no false rejections from the stricter key checks).
 
-- Publish: no git remote, `repository` field absent from Cargo.toml,
-  proc-macro-crate for macro imports not adopted.
-- MINOR-1: re-check score range in `ScoreDecision::parse` (hand-built
-  `Answers` path).
-- Retry: no `Retry-After` header or jitter support.
-- In-flight HTTP requests are not abortable via cancellation token.
+## Deferred (recorded by both reviewers, none blocking)
+
+- `QuestionSpec::into_wire` / hand-implemented `QuestionType` can lower
+  IR that `validate()` would reject.
+- Generated `schema()` export silently truncates duplicate question ids
+  (compose rejects them at runtime).
+- `JevInstructions` generics miss a conditional `Serialize` bound (E0277).
+- Backtick instruction references check Rust field names, not
+  serde-renamed keys.
+- Dead public surface: `QuestionKind`/`KIND`, `choice_options()`,
+  `iter_names()`, `option_null()`; unreachable static-empty-score branch.
+- Malformed `#[jev]` field attrs are swallowed silently in state.rs.
+- `Limits` is a constants table wearing a pub-fields struct.
+- Publish blockers: no git remote, `repository` field absent,
+  proc-macro-crate not adopted.
+- No `Retry-After`/jitter; in-flight requests not abortable.
 
 ## Relationship to agent-driver-rs
 
-Stage 5 (ADR-0008) — porting lessons from this prototype into
-agent-driver-rs — remains a separate later wave, tracked in that repo's
-TODO.md. Nothing here depends on it.
+Stage 5 (ADR-0008) remains a separate later wave in that repo's TODO.md.
