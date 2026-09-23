@@ -189,6 +189,7 @@ fn container_rename_all(attrs: &[Attribute]) -> Option<RenameRule> {
                         // names stay at the idents (`rule` already None).
                     }
                 }
+                drain_value(&meta);
                 Ok(())
             })
             .is_err()
@@ -231,43 +232,29 @@ impl RenameRule {
         })
     }
 
+    /// Serde's field rules assume Rust's snake_case naming convention:
+    /// only Pascal/Camel split into words (on `_`/`-` alone — never on
+    /// case boundaries); Lower/Snake are identity; the rest are
+    /// whole-ident transforms. `XMLHttp` under camelCase is `xMLHttp`;
+    /// under snake_case or lowercase it stays `XMLHttp`.
     fn apply(&self, ident: &str) -> String {
-        let words = split_words(ident);
         match self {
-            Self::LowerCase => ident.to_lowercase(),
-            Self::UpperCase => ident.to_uppercase(),
-            Self::PascalCase => words.iter().map(|w| capitalize(w)).collect(),
-            Self::CamelCase => words
+            Self::LowerCase | Self::SnakeCase => ident.to_owned(),
+            Self::UpperCase | Self::ScreamingSnakeCase => ident.to_ascii_uppercase(),
+            Self::KebabCase => ident.replace('_', "-"),
+            Self::ScreamingKebabCase => ident.replace('_', "-").to_ascii_uppercase(),
+            Self::PascalCase => split_words(ident).iter().map(|w| capitalize(w)).collect(),
+            Self::CamelCase => split_words(ident)
                 .iter()
                 .enumerate()
                 .map(|(i, word)| {
                     if i == 0 {
-                        word.to_lowercase()
+                        lowercase_first(word)
                     } else {
                         capitalize(word)
                     }
                 })
                 .collect(),
-            Self::SnakeCase => words
-                .iter()
-                .map(|w| w.to_lowercase())
-                .collect::<Vec<_>>()
-                .join("_"),
-            Self::ScreamingSnakeCase => words
-                .iter()
-                .map(|w| w.to_uppercase())
-                .collect::<Vec<_>>()
-                .join("_"),
-            Self::KebabCase => words
-                .iter()
-                .map(|w| w.to_lowercase())
-                .collect::<Vec<_>>()
-                .join("-"),
-            Self::ScreamingKebabCase => words
-                .iter()
-                .map(|w| w.to_uppercase())
-                .collect::<Vec<_>>()
-                .join("-"),
         }
     }
 }
@@ -284,35 +271,23 @@ fn capitalize(word: &str) -> String {
     }
 }
 
-/// Splits on `_`/`-` separators, then on case boundaries: an uppercase
-/// char starts a new word when it follows a lowercase/digit char, or when
-/// it is an uppercase run's last char before lowercase (`XMLHttp` ->
-/// `XML`, `Http`).
-fn split_words(ident: &str) -> Vec<String> {
-    let mut words = Vec::new();
-    for chunk in ident.split(['_', '-']) {
-        let chars: Vec<char> = chunk.chars().collect();
-        let mut start = 0;
-        for i in 0..chars.len() {
-            if !chars[i].is_uppercase() {
-                continue;
-            }
-            let boundary = if i == 0 {
-                false
-            } else {
-                let prev = chars[i - 1];
-                prev.is_lowercase()
-                    || prev.is_numeric()
-                    || chars.get(i + 1).is_some_and(|next| next.is_lowercase())
-            };
-            if boundary && i > start {
-                words.push(chars[start..i].iter().collect());
-                start = i;
-            }
-        }
-        if start < chars.len() {
-            words.push(chars[start..].iter().collect());
+/// First char lowercased, rest untouched — serde's first-word camel
+/// transform (`XMLHttp` -> `xMLHttp`, not `xmlhttp`).
+fn lowercase_first(word: &str) -> String {
+    let mut chars = word.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => {
+            let mut out: String = c.to_lowercase().collect();
+            out.push_str(chars.as_str());
+            out
         }
     }
-    words
+}
+
+/// Splits on `_`/`-` separators only, for the Pascal/Camel rules. Case
+/// boundaries do NOT start new words: serde deliberately differs from
+/// heck here (`XMLHttp` stays one word, so camelCase yields `xMLHttp`).
+fn split_words(ident: &str) -> Vec<String> {
+    ident.split(['_', '-']).map(str::to_owned).collect()
 }

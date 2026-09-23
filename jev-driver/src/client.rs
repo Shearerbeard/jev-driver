@@ -66,8 +66,9 @@ impl RetryConfig {
     }
 }
 
-/// Client configuration.
-#[derive(Debug, Clone)]
+/// Client configuration. `Debug` is hand-written to keep the API key
+/// out of logs; one derived `{:?}` would print it verbatim.
+#[derive(Clone)]
 pub struct JevConfig {
     /// API key (`TYPESAFE_API_KEY`).
     pub api_key: String,
@@ -79,6 +80,18 @@ pub struct JevConfig {
     pub timeout: Duration,
     /// Retry policy.
     pub retry: RetryConfig,
+}
+
+impl std::fmt::Debug for JevConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JevConfig")
+            .field("api_key", &"<redacted>")
+            .field("base_url", &self.base_url)
+            .field("model", &self.model)
+            .field("timeout", &self.timeout)
+            .field("retry", &self.retry)
+            .finish()
+    }
 }
 
 impl JevConfig {

@@ -50,6 +50,78 @@ Gates at handoff (exit codes verified): `make check` (24 tests, clippy
 clean), `make red` (11 acceptance), `make live` (202ms live round-trip,
 typed answers, no false rejections from the stricter key checks).
 
+## Heavy full-repo review (dual-family, PASS-WITH-CONDITIONS both)
+
+Staged packet: agent-driver-rs `.review/README-heavy.md` +
+`jev-driver-full-tree.diff`. Verdicts: PASS-WITH-CONDITIONS from both
+reviewers; no BLOCKING findings; all recorded deferred items re-graded
+(only `Limits` worse than recorded — it is a fourth copy of the
+cardinality constants, not a source of truth).
+
+P1/P2s fixed immediately after the review (uncommitted at time of
+writing, gated green):
+
+1. P1 — serde_names diverged from serde's actual rename algorithm:
+   serde splits words on `_`/`-` ONLY (never case boundaries — that is
+   heck's behavior, deliberately not serde's), and `lowercase` /
+   `snake_case` are identity on fields (Rust convention), with
+   `UPPERCASE`/screaming/kebab as whole-ident transforms. Fixed to
+   mirror serde exactly; the differential test now runs adversarial
+   idents (`xmlHttpRequest`, `XMLHttp`) through every rule. Verified
+   against `serde_json::to_value` output.
+2. P1 — `JevConfig` derived `Debug` printed the raw API key. Hand impl
+   redacts; regression test asserts no leak.
+3. P2 — `container_rename_all` dropped the rename rule when a sibling
+   valued meta (`bound`, `crate`, `remote`) was present (syn rejects
+   unconsumed values). Now drains like `field_rename`; test with
+   `bound = ""`.
+
+Remaining review conditions (do before publish, sequenced with API
+testing — reviewer "first three changes"):
+
+- Make the IR the authority at its own boundary: validated
+  constructors (or per-spec validation in `into_wire`) + add
+  `deny_unknown_fields` to `QuestionSpec`/`StateSpec` — closes the
+  into_wire bypass AND the silent runtime->static flip on a
+  `criteria_source` typo.
+- One discriminant, one limits table: revive `QuestionKind::as_str()`
+  as the single source for the four hand-written `kind_str()` matches;
+  centralize 255 / 2..=10 (currently four sites across two crates).
+- Decide the runtime-criteria artifact story: criteria channel on
+  `SchemaQueryBuilder` + capture editor criteria in exports, or
+  retitle the artifact "validated schema export" and drop the DMMF
+  framing (today's runtime-criteria artifacts are non-executable and
+  non-diffable).
+- Publish-wave bundling: slim the prelude of `WireRequestBody`/
+  `WireResponse`/`WireAnswer`; move macro-addressed helpers
+  (`score_editor_levels`, `validate_state_refs`) to `#[doc(hidden)]
+  __private` alongside `proc-macro-crate`; feature-gate `dotenvy`;
+  consider renaming `Decision` (request vs per-question outcome
+  overload) before the API is consumed publicly.
+- Smaller accepted clusters: duplicate-id check x3 (one helper);
+  `Usage`/`WireUsage` `From` impl; choice/score criteria-uniformity
+  util; cross-ref comments on the two backtick extractors; broken
+  intra-doc links (schema.rs `DynChoice`, macros lib.rs);
+  `is_non_empty` on structured form should check the `question` string.
+
+## Publish readiness (after API testing)
+
+Deferred deliberately: land these once the API surface has been
+consumed and validated, just before making the repo public.
+
+- IMPORTANT — `proc-macro-crate` adoption: macros generate hardcoded
+  `::jev_driver::` paths, so a renamed dependency breaks expansion.
+  Resolve the real crate name at expansion (~30 lines + rename test).
+- Package the README: `readme = "../README.md"` on both crates
+  (verified: Cargo packages it).
+- Ship the license texts: `include` both LICENSE files or copy them
+  into each crate (neither tarball carries them today).
+- `publish = false` on testapp.
+- Pin `jev-driver-macros` exact (`=0.1.0`, thiserror pattern).
+- Sequence: flip repo public -> check name availability -> publish
+  macros first, then runtime -> tag v0.1.0 -> swap the README install
+  snippet to the crates.io line.
+
 ## Deferred (recorded by both reviewers, none blocking)
 
 - `QuestionSpec::into_wire` / hand-implemented `QuestionType` can lower

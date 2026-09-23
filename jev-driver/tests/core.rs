@@ -657,48 +657,79 @@ fn state_keys_match_serde_serialization_across_rules() -> Result<(), Box<dyn std
         ticket_text: String,
         http_url: String,
         xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all = "snake_case")]
     struct Snake {
         ticket_text: String,
         http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
     struct ScreamingSnake {
         ticket_text: String,
+        http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all = "kebab-case")]
     struct Kebab {
         ticket_text: String,
+        http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all = "SCREAMING-KEBAB-CASE")]
     struct ScreamingKebab {
         ticket_text: String,
+        http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all = "PascalCase")]
     struct Pascal {
         ticket_text: String,
+        http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all = "lowercase")]
     struct Lower {
         ticket_text: String,
+        http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all = "UPPERCASE")]
     struct Upper {
         ticket_text: String,
+        http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
+
     #[derive(serde::Serialize, JevState)]
     #[serde(rename_all(serialize = "camelCase", deserialize = "kebab-case"))]
     struct SplitForm {
         ticket_text: String,
         http_url: String,
+        xmlHttpRequest: String,
+        XMLHttp: String,
     }
 
     let text = "t".to_owned();
@@ -706,32 +737,55 @@ fn state_keys_match_serde_serialization_across_rules() -> Result<(), Box<dyn std
         ticket_text: text.clone(),
         http_url: text.clone(),
         xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&Snake {
         ticket_text: text.clone(),
         http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&ScreamingSnake {
         ticket_text: text.clone(),
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&Kebab {
         ticket_text: text.clone(),
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&ScreamingKebab {
         ticket_text: text.clone(),
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&Pascal {
         ticket_text: text.clone(),
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&Lower {
         ticket_text: text.clone(),
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&Upper {
         ticket_text: text.clone(),
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     assert_keys_match(&SplitForm {
         ticket_text: text.clone(),
-        http_url: text,
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+        XMLHttp: text.clone(),
     })?;
     Ok(())
 }
@@ -764,6 +818,18 @@ fn state_keys_skip_precedence_and_exemption_granularity() {
         "conditional presence must not exempt the struct"
     );
 
+    // Valued sibling attrs (bound) must not derail rename_all resolution.
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "camelCase", bound = "")]
+    struct WithBound {
+        ticket_text: String,
+    }
+    assert_eq!(
+        <WithBound as StateKeys>::STATE_KEYS,
+        Some(&["ticketText"][..]),
+        "sibling valued metas must not swallow the rename rule"
+    );
+
     // Only flatten makes the key set itself unknowable.
     #[derive(serde::Serialize)]
     struct Extra {
@@ -780,4 +846,25 @@ fn state_keys_skip_precedence_and_exemption_granularity() {
         None,
         "flatten must exempt the struct"
     );
+}
+
+#[test]
+fn jev_config_debug_redacts_the_api_key() -> Result<(), Box<dyn std::error::Error>> {
+    let config = JevConfig {
+        api_key: "sk-super-secret".to_owned(),
+        base_url: "https://api.typesafe.ai".parse()?,
+        model: "jev-1.13.0".to_owned(),
+        timeout: std::time::Duration::from_secs(30),
+        retry: RetryConfig::default(),
+    };
+    let debug = format!("{config:?}");
+    assert!(
+        !debug.contains("sk-super-secret"),
+        "Debug must not leak the key: {debug}"
+    );
+    assert!(
+        debug.contains("<redacted>"),
+        "Debug marks the redaction: {debug}"
+    );
+    Ok(())
 }
