@@ -1,4 +1,5 @@
-//! `JevNoul`: a unit struct carrying a yes/no question.
+//! `JevNoul`: a unit struct carrying a yes/no question. Instruction
+//! backtick references are state paths validated at compose time.
 
 use proc_macro2::TokenStream;
 use quote::quote;

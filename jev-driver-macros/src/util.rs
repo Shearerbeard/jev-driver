@@ -90,14 +90,15 @@ pub(crate) fn to_snake_case(ident: &str) -> String {
     out
 }
 
-/// Extracts the `` `backtick` `` reference tokens from a question string.
+/// Extracts the `` `backtick` `` reference tokens from a question string,
+/// skipping empty pairs (prose artifacts, not references).
 pub(crate) fn backtick_refs(question: &str) -> Vec<String> {
-    let parts: Vec<&str> = question.split('`').collect();
-    parts
-        .iter()
+    question
+        .split('`')
         .skip(1)
         .step_by(2)
-        .map(|token| (*token).to_owned())
+        .filter(|token| !token.is_empty())
+        .map(|token| token.to_owned())
         .collect()
 }
 

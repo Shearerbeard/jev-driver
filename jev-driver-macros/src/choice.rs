@@ -4,9 +4,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::{
-    backtick_refs, companion_ident, jev_string_attrs, reject_generics, required, to_snake_case,
-};
+use crate::util::{companion_ident, jev_string_attrs, reject_generics, required, to_snake_case};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     reject_generics(input, "JevChoice")?;
@@ -63,14 +61,6 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             input,
             "JevChoice criteria must be present on every variant or on none (runtime-supplied via the editor)",
         ));
-    }
-    for token in backtick_refs(instructions) {
-        if !token.starts_with("state.") && !variants.iter().any(|(_, key, _)| *key == token) {
-            return Err(syn::Error::new_spanned(
-                input,
-                format!("JevChoice instructions reference `{token}` but no option has that key"),
-            ));
-        }
     }
 
     let id_lit = id.as_str();

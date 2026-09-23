@@ -7,10 +7,7 @@ use serde::{Deserialize, Serialize};
 /// Choice with runtime criteria: option keys come from the enum, the
 /// rubric text is supplied per call (see [`TENANT`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, JevChoice)]
-#[jev(
-    id = "department",
-    instructions = "Which team should handle this ticket?"
-)]
+#[jev(id = "department", instructions = "Which team should handle `ticket`?")]
 pub enum Department {
     Billing,
     Technical,
@@ -22,7 +19,7 @@ pub enum Department {
 #[derive(Debug, Clone, Copy, JevNoul)]
 #[jev(
     id = "is_urgent",
-    instructions = "Does this ticket convey time pressure?",
+    instructions = "Does `ticket` convey time pressure?",
     yes = "Explicit deadline or costly delay",
     no = "No time pressure expressed"
 )]
@@ -32,7 +29,7 @@ pub struct IsUrgent;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, JevScore)]
 #[jev(
     id = "frustration",
-    instructions = "How frustrated does the customer appear?"
+    instructions = "How frustrated does the customer appear in `ticket`?"
 )]
 pub enum Frustration {
     #[jev(criteria = "Calm and neutral")]

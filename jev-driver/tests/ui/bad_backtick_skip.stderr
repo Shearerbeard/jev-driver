@@ -1,0 +1,10 @@
+error: JevInstructions question references `internal_note` but field `internal_note` is skipped by serde and never serialized
+  --> tests/ui/bad_backtick_skip.rs:7:1
+   |
+ 7 | / #[jev(question = "Is the `internal_note` favorable?")]
+ 8 | | struct WithSkip {
+ 9 | |     public: String,
+10 | |     #[serde(skip)]
+11 | |     internal_note: String,
+12 | | }
+   | |_^

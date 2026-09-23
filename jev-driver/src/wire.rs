@@ -62,6 +62,18 @@ impl Instructions {
         out.insert("question".to_owned(), Value::String(question.to_owned()));
         Ok(Self::Structured(out))
     }
+
+    /// The question text: the whole text form, or the embedded `question`
+    /// string of the structured form. `None` for the parts form and for
+    /// structured payloads whose `question` field is not a string.
+    #[must_use]
+    pub fn question_text(&self) -> Option<&str> {
+        match self {
+            Self::Text(s) => Some(s),
+            Self::Structured(m) => m.get("question").and_then(Value::as_str),
+            Self::Parts(_) => None,
+        }
+    }
 }
 
 impl From<&str> for Instructions {
@@ -123,6 +135,16 @@ impl WireQuestion {
             Self::Choice { .. } => "choice",
             Self::Score { .. } => "score",
             Self::Noul { .. } => "noul",
+        }
+    }
+
+    /// The question's instructions.
+    #[must_use]
+    pub const fn instructions(&self) -> &Instructions {
+        match self {
+            Self::Choice { instructions, .. }
+            | Self::Score { instructions, .. }
+            | Self::Noul { instructions, .. } => instructions,
         }
     }
 

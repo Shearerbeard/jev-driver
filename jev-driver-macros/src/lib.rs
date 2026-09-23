@@ -16,6 +16,7 @@ mod instructions;
 mod noul;
 mod questions;
 mod score;
+mod serde_names;
 mod state;
 mod util;
 

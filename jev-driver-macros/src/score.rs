@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::{backtick_refs, companion_ident, jev_string_attrs, reject_generics, required};
+use crate::util::{companion_ident, jev_string_attrs, reject_generics, required};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     reject_generics(input, "JevScore")?;
@@ -44,14 +44,6 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             input,
             "JevScore criteria must be present on every variant or on none (runtime-supplied via the editor)",
         ));
-    }
-    for token in backtick_refs(instructions) {
-        if !token.starts_with("state.") {
-            return Err(syn::Error::new_spanned(
-                input,
-                format!("JevScore instructions may only reference state fields, found `{token}`"),
-            ));
-        }
     }
 
     let id_lit = id.as_str();

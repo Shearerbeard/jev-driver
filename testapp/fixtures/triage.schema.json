@@ -9,13 +9,13 @@
   "questions": {
     "department": {
       "type": "choice",
-      "instructions": "Which team should handle this ticket?",
+      "instructions": "Which team should handle `ticket`?",
       "criteria": {},
       "criteria_source": "runtime"
     },
     "frustration": {
       "type": "score",
-      "instructions": "How frustrated does the customer appear?",
+      "instructions": "How frustrated does the customer appear in `ticket`?",
       "criteria": [
         "Calm and neutral",
         "Concerned but civil",
@@ -24,7 +24,7 @@
     },
     "is_urgent": {
       "type": "noul",
-      "instructions": "Does this ticket convey time pressure?",
+      "instructions": "Does `ticket` convey time pressure?",
       "criteria": {
         "true": "Explicit deadline or costly delay",
         "false": "No time pressure expressed"

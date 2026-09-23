@@ -78,6 +78,18 @@ pub enum JevError {
     #[error("state was not provided")]
     MissingState,
 
+    /// An instruction backtick reference whose root segment is neither a
+    /// serialized state key nor the question's own option/data key.
+    #[error(
+        "question `{question}` references `{reference}` but the serialized state has no such key"
+    )]
+    DanglingStateRef {
+        /// The question whose instructions carry the reference.
+        question: String,
+        /// The dangling reference token.
+        reference: String,
+    },
+
     /// Schema invariant violation (bad IR, cardinality, editor shape).
     #[error("invalid schema: {0}")]
     Schema(String),

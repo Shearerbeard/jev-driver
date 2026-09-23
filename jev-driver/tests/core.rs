@@ -463,3 +463,321 @@ fn aliasing_level_keys_are_rejected() -> Result<(), Box<dyn std::error::Error>> 
     }
     Ok(())
 }
+
+#[test]
+fn state_keys_resolve_serde_names() {
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "camelCase")]
+    struct CamelState {
+        ticket_text: String,
+        #[serde(skip)]
+        internal: String,
+        #[serde(rename = "sla")]
+        sla_hours: f64,
+    }
+    assert_eq!(
+        <CamelState as StateKeys>::STATE_KEYS,
+        Some(&["ticketText", "sla"][..]),
+        "keys must be serde-resolved, declaration order, skips excluded"
+    );
+}
+
+#[test]
+fn compose_rejects_dangling_state_refs() -> Result<(), Box<dyn std::error::Error>> {
+    #[derive(Debug, Clone, Copy, JevNoul)]
+    #[jev(id = "urgent", instructions = "Does `ticket` convey urgency?")]
+    struct Urgent;
+
+    #[derive(serde::Serialize, JevState)]
+    struct PlainState {
+        message: String,
+    }
+
+    #[derive(JevQuestions)]
+    #[jev(state = PlainState)]
+    struct Qs {
+        urgent: Urgent,
+    }
+
+    let err = Qs::request()
+        .state(&PlainState {
+            message: "now".to_owned(),
+        })?
+        .build()
+        .expect_err("a reference rooted at a missing key must fail composition");
+    match err {
+        JevError::DanglingStateRef {
+            question,
+            reference,
+        } => {
+            assert_eq!(question, "urgent", "error names the question");
+            assert_eq!(reference, "ticket", "error names the reference");
+        }
+        other => panic!("expected DanglingStateRef, got {other:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn compose_accepts_serde_renamed_roots() -> Result<(), Box<dyn std::error::Error>> {
+    #[derive(Debug, Clone, Copy, JevNoul)]
+    #[jev(id = "urgent", instructions = "Does `ticketText` convey urgency?")]
+    struct Urgent;
+
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "camelCase")]
+    struct CamelState {
+        ticket_text: String,
+    }
+
+    #[derive(JevQuestions)]
+    #[jev(state = CamelState)]
+    struct Qs {
+        urgent: Urgent,
+    }
+
+    let decision = Qs::request()
+        .state(&CamelState {
+            ticket_text: "refund today".to_owned(),
+        })?
+        .build()?;
+    let instructions = decision
+        .questions()
+        .get("urgent")
+        .expect("question present");
+    assert_eq!(
+        instructions.instructions().question_text(),
+        Some("Does `ticketText` convey urgency?"),
+        "references ride the wire verbatim"
+    );
+    Ok(())
+}
+
+#[test]
+fn validate_state_refs_local_roots_and_exemptions() -> Result<(), Box<dyn std::error::Error>> {
+    // Option keys and structured data fields are local roots, valid even
+    // when the state carries no such key.
+    let structured =
+        Instructions::from_question("Pick `billing` for `payload`?", &json!({ "payload": 1 }))?;
+    let mut questions = BTreeMap::new();
+    questions.insert(
+        "pick".to_owned(),
+        WireQuestion::Choice {
+            instructions: structured,
+            criteria: BTreeMap::from([("billing".to_owned(), Some(Instructions::text("B")))]),
+        },
+    );
+    assert!(
+        validate_state_refs(&questions, Some(&["unrelated"])).is_ok(),
+        "option-key and data-field roots must pass"
+    );
+
+    // A genuinely dangling root fails with the question named.
+    questions.insert(
+        "check".to_owned(),
+        WireQuestion::Noul {
+            instructions: Instructions::text("Is `ghost` present?"),
+            criteria: None,
+        },
+    );
+    let err = validate_state_refs(&questions, Some(&["real"]))
+        .expect_err("a root matching no namespace must fail");
+    match err {
+        JevError::DanglingStateRef {
+            question,
+            reference,
+        } => {
+            assert_eq!(question, "check", "error names the question");
+            assert_eq!(reference, "ghost", "error names the reference");
+        }
+        other => panic!("expected DanglingStateRef, got {other:?}"),
+    }
+
+    // Exemptions: opaque state keys and parts-form instructions.
+    assert!(
+        validate_state_refs(&questions, None).is_ok(),
+        "opaque state keys exempt the set"
+    );
+    questions.insert(
+        "parts".to_owned(),
+        WireQuestion::Noul {
+            instructions: Instructions::Parts(vec![json!("no single question text")]),
+            criteria: None,
+        },
+    );
+    questions.remove("check");
+    assert!(
+        validate_state_refs(&questions, Some(&[])).is_ok(),
+        "parts-form instructions carry no refs to check"
+    );
+
+    // Index roots split at `[`; empty backtick pairs are not references.
+    questions.insert(
+        "idx".to_owned(),
+        WireQuestion::Noul {
+            instructions: Instructions::text("Is `items[0]` fresh? Yes `` indeed"),
+            criteria: None,
+        },
+    );
+    assert!(
+        validate_state_refs(&questions, Some(&["items"])).is_ok(),
+        "indexed roots and empty pairs must pass"
+    );
+    Ok(())
+}
+
+#[test]
+fn state_keys_match_serde_serialization_across_rules() -> Result<(), Box<dyn std::error::Error>> {
+    // Differential: whatever the macro resolves must equal what serde
+    // actually emits, per rename rule, including acronym-run idents.
+    fn assert_keys_match<T: serde::Serialize + StateKeys>(
+        state: &T,
+    ) -> Result<(), serde_json::Error> {
+        let serde_json::Value::Object(map) = serde_json::to_value(state)? else {
+            panic!("state must serialize to an object");
+        };
+        let mut serde_keys: Vec<String> = map.keys().cloned().collect();
+        let mut resolved: Vec<String> = <T as StateKeys>::STATE_KEYS
+            .unwrap_or_default()
+            .iter()
+            .map(|k| (*k).to_owned())
+            .collect();
+        serde_keys.sort_unstable();
+        resolved.sort_unstable();
+        assert_eq!(
+            resolved, serde_keys,
+            "STATE_KEYS must equal serde's emitted keys"
+        );
+        Ok(())
+    }
+
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "camelCase")]
+    struct Camel {
+        ticket_text: String,
+        http_url: String,
+        xmlHttpRequest: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "snake_case")]
+    struct Snake {
+        ticket_text: String,
+        http_url: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+    struct ScreamingSnake {
+        ticket_text: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "kebab-case")]
+    struct Kebab {
+        ticket_text: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "SCREAMING-KEBAB-CASE")]
+    struct ScreamingKebab {
+        ticket_text: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "PascalCase")]
+    struct Pascal {
+        ticket_text: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "lowercase")]
+    struct Lower {
+        ticket_text: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all = "UPPERCASE")]
+    struct Upper {
+        ticket_text: String,
+    }
+    #[derive(serde::Serialize, JevState)]
+    #[serde(rename_all(serialize = "camelCase", deserialize = "kebab-case"))]
+    struct SplitForm {
+        ticket_text: String,
+        http_url: String,
+    }
+
+    let text = "t".to_owned();
+    assert_keys_match(&Camel {
+        ticket_text: text.clone(),
+        http_url: text.clone(),
+        xmlHttpRequest: text.clone(),
+    })?;
+    assert_keys_match(&Snake {
+        ticket_text: text.clone(),
+        http_url: text.clone(),
+    })?;
+    assert_keys_match(&ScreamingSnake {
+        ticket_text: text.clone(),
+    })?;
+    assert_keys_match(&Kebab {
+        ticket_text: text.clone(),
+    })?;
+    assert_keys_match(&ScreamingKebab {
+        ticket_text: text.clone(),
+    })?;
+    assert_keys_match(&Pascal {
+        ticket_text: text.clone(),
+    })?;
+    assert_keys_match(&Lower {
+        ticket_text: text.clone(),
+    })?;
+    assert_keys_match(&Upper {
+        ticket_text: text.clone(),
+    })?;
+    assert_keys_match(&SplitForm {
+        ticket_text: text.clone(),
+        http_url: text,
+    })?;
+    Ok(())
+}
+
+#[test]
+fn state_keys_skip_precedence_and_exemption_granularity() {
+    // Skip wins over rename regardless of attribute order.
+    #[derive(serde::Serialize, JevState)]
+    struct SkipWins {
+        live: String,
+        #[serde(rename = "hidden", skip)]
+        internal: String,
+    }
+    assert_eq!(
+        <SkipWins as StateKeys>::STATE_KEYS,
+        Some(&["live"][..]),
+        "skip must win over rename"
+    );
+
+    // Value-shaping attrs keep the key static: the struct stays checked.
+    #[derive(serde::Serialize, JevState)]
+    struct Conditional {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        maybe: Option<String>,
+        live: String,
+    }
+    assert_eq!(
+        <Conditional as StateKeys>::STATE_KEYS,
+        Some(&["maybe", "live"][..]),
+        "conditional presence must not exempt the struct"
+    );
+
+    // Only flatten makes the key set itself unknowable.
+    #[derive(serde::Serialize)]
+    struct Extra {
+        bonus: u32,
+    }
+    #[derive(serde::Serialize, JevState)]
+    struct WithFlatten {
+        live: String,
+        #[serde(flatten)]
+        extra: Extra,
+    }
+    assert_eq!(
+        <WithFlatten as StateKeys>::STATE_KEYS,
+        None,
+        "flatten must exempt the struct"
+    );
+}

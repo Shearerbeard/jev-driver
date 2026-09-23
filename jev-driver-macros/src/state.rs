@@ -1,9 +1,11 @@
-//! `JevState`: documents a state type in the schema IR.
+//! `JevState`: documents a state type in the schema IR and publishes its
+//! serialized keys for compose-time reference validation.
 
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
+use crate::serde_names;
 use crate::util::{jev_string_attrs, reject_generics};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
@@ -34,6 +36,17 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         })
         .collect();
 
+    let resolved = serde_names::resolve_fields(&input.attrs, fields.named.iter());
+    let keys_expr = match serde_names::serialized_keys(&resolved) {
+        Some(keys) => {
+            let literals = keys.iter().map(|k| k.as_str());
+            quote! { ::core::option::Option::Some(&[#(#literals),*]) }
+        }
+        // Opaque shape (flatten / conditional skip / custom serialize):
+        // root checking is exempt rather than wrong.
+        None => quote! { ::core::option::Option::None },
+    };
+
     let describe_expr = match describe {
         Some(text) => quote! { ::core::option::Option::Some(#text.to_owned()) },
         None => quote! { ::core::option::Option::None },
@@ -57,6 +70,11 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
                     fields: #fields_expr,
                 }
             }
+        }
+
+        #[automatically_derived]
+        impl ::jev_driver::StateKeys for #name {
+            const STATE_KEYS: ::core::option::Option<&'static [&'static str]> = #keys_expr;
         }
     })
 }

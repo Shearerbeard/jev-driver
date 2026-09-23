@@ -60,6 +60,20 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
         None => quote! {},
     };
+    let validate_chain = match state_ty {
+        Some(ty) => {
+            let parsed: syn::Type = syn::parse_str(ty).map_err(|_| {
+                syn::Error::new_spanned(input, format!("invalid state type `{ty}`"))
+            })?;
+            quote! {
+                ::jev_driver::refs::validate_state_refs(
+                    &questions,
+                    <#parsed as ::jev_driver::StateKeys>::STATE_KEYS,
+                )?;
+            }
+        }
+        None => quote! {},
+    };
 
     Ok(quote! {
         #[automatically_derived]
@@ -126,6 +140,7 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
                         ));
                     }
                 )*
+                #validate_chain
                 ::core::result::Result::Ok(questions)
             }
         }

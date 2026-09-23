@@ -1,0 +1,9 @@
+error: JevInstructions question references `stated_employer` but the serialized data carries keys [statedEmployer] (field `stated_employer` serializes as `statedEmployer`)
+  --> tests/ui/bad_backtick_rename.rs:8:1
+   |
+ 8 | / #[serde(rename_all = "camelCase")]
+ 9 | | #[jev(question = "Is this the same person as `stated_employer`?")]
+10 | | struct SameEmployer {
+11 | |     stated_employer: String,
+12 | | }
+   | |_^

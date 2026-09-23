@@ -21,6 +21,7 @@ pub mod client;
 pub mod error;
 pub mod prelude;
 pub mod question;
+pub mod refs;
 pub mod schema;
 pub mod wire;
 
@@ -39,6 +40,7 @@ pub use answer::{Answer, Answers, ChoiceDecision, FromAnswers, NoulDecision, Sco
 pub use question::{
     ChoiceOptions, QuestionKind, QuestionSet, QuestionType, RequestBuilder, ScoreLevels,
 };
+pub use refs::{StateKeys, validate_state_refs};
 pub use schema::{CriteriaSource, DecisionSchema, QuestionSpec, StateSpec};
 pub use wire::{Instructions, NoulCriteria, WireQuestion};
 

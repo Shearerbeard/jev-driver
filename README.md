@@ -35,7 +35,7 @@ struct TicketState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, JevChoice)]
-#[jev(id = "department", instructions = "Which team should handle this ticket?")]
+#[jev(id = "department", instructions = "Which team should handle `ticket`?")]
 enum Department {
     Billing,
     Technical,
@@ -46,14 +46,17 @@ enum Department {
 #[derive(Debug, Clone, Copy, JevNoul)]
 #[jev(
     id = "is_urgent",
-    instructions = "Does this ticket convey time pressure?",
+    instructions = "Does `ticket` convey time pressure?",
     yes = "Explicit deadline or costly delay",
     no = "No time pressure expressed"
 )]
 struct IsUrgent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, JevScore)]
-#[jev(id = "frustration", instructions = "How frustrated does the customer appear?")]
+#[jev(
+    id = "frustration",
+    instructions = "How frustrated does the customer appear in `ticket`?"
+)]
 enum Frustration {
     #[jev(criteria = "Calm and neutral")]
     Calm,
@@ -164,6 +167,22 @@ Every answer, on every path, is validated against the question that asked it:
   canonical keys (`"0"`, `"1"` - aliases like `"00"` are rejected); the
   score must be finite and inside the rubric's range.
 - Noul probabilities and confidence values must be finite and in [0, 1].
+
+Backtick references in instruction text (`` `ticket` ``,
+`` `ticket.messages[0]` ``) are validated against the keys serde
+actually emits, never Rust field names:
+
+- `JevInstructions` checks its data fields at compile time, honoring
+  `#[serde(rename)]` and `rename_all`; referencing a field serde skips
+  is a hard compile error.
+- `JevQuestions` composition root-checks every question's references
+  against the paired state's serialized keys (`StateKeys`, emitted by
+  `JevState`) plus the question's own option keys and structured
+  instruction data fields, failing with a typed `DanglingStateRef`.
+- Structs whose key set serde decides at runtime (`flatten`) are
+  exempt, as are dynamic questions added after `build()` via
+  `with_question`; criteria text on choice options and parts-form
+  instructions are not scanned for references.
 
 The untyped layer (`Answers::from_wire`) and the typed layer (`parse_as` and
 the generated `parse` impls) enforce the same rules; the wire path re-checks

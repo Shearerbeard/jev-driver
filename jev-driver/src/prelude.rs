@@ -10,6 +10,7 @@ pub use crate::question::{
     BuiltQuestion, ChoiceOptions, Decision, DecisionBuilder, DynChoice, QuestionKind, QuestionSet,
     QuestionType, RequestBuilder, ScoreLevels,
 };
+pub use crate::refs::{StateKeys, validate_state_refs};
 pub use crate::schema::{CriteriaSource, DecisionSchema, QuestionSpec, SCHEMA_VERSION};
 pub use crate::wire::{
     Instructions, NoulCriteria, WireAnswer, WireQuestion, WireRequestBody, WireResponse,

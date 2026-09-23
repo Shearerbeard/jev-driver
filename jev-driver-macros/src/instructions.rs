@@ -1,10 +1,11 @@
 //! `JevInstructions`: struct-to-string question contracts with
-//! compile-time backtick validation.
+//! compile-time backtick validation against serde's serialized keys.
 
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
+use crate::serde_names::{self, KeyOutcome};
 use crate::util::{backtick_refs, jev_string_attrs, required};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
@@ -25,25 +26,43 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         ));
     };
 
-    let field_names: Vec<String> = fields
-        .named
-        .iter()
-        .filter_map(|field| {
-            let ident = field.ident.as_ref()?;
-            Some(ident.to_string())
-        })
-        .collect();
+    // The model sees the serialized payload, so references are checked
+    // against serde's keys (rename / rename_all), never Rust idents.
+    let resolved = serde_names::resolve_fields(&input.attrs, fields.named.iter());
+    let serialized = serde_names::serialized_keys(&resolved);
     for token in backtick_refs(question) {
-        if token.starts_with("state.") {
-            continue;
+        if let Some(field) = resolved.iter().find(|f| f.matches(&token)) {
+            if let KeyOutcome::NeverSerialized = field.outcome {
+                return Err(syn::Error::new_spanned(
+                    input,
+                    format!(
+                        "JevInstructions question references `{token}` but field `{}` is skipped by serde and never serialized",
+                        field.ident
+                    ),
+                ));
+            }
         }
-        if !field_names.contains(&token) {
-            return Err(syn::Error::new_spanned(
-                input,
-                format!(
-                    "JevInstructions question references `{token}` but the struct has no such field"
-                ),
-            ));
+        if let Some(available) = &serialized {
+            if !available.iter().any(|key| key == &token) {
+                let rename_hint = resolved
+                    .iter()
+                    .find(|f| f.ident == token)
+                    .map(|f| match &f.outcome {
+                        KeyOutcome::Key(k) => {
+                            format!(" (field `{}` serializes as `{k}`)", f.ident)
+                        }
+                        KeyOutcome::NeverSerialized | KeyOutcome::Opaque => String::new(),
+                    })
+                    .unwrap_or_default();
+                return Err(syn::Error::new_spanned(
+                    input,
+                    format!(
+                        "JevInstructions question references `{token}` but the serialized data carries keys [{}]{}",
+                        available.join(", "),
+                        rename_hint,
+                    ),
+                ));
+            }
         }
     }
 
