@@ -18,6 +18,19 @@ Status: 0.1.0 prototype in a private repo
 a path dependency (`jev-driver = { path = "…" }`) until a release is
 published. Workspace layout at the bottom.
 
+## Install
+
+Until a crates.io release exists, consume the runtime crate as a path
+dependency:
+
+```toml
+[dependencies]
+jev-driver = { path = "path/to/jev-driver/jev-driver" }
+```
+
+The workspace clones with `testapp/`, an offline-runnable demo: `make red`
+replays a recorded response, `make live` calls the cloud API.
+
 ## Quickstart: the derive surface
 
 Declare your state and questions as Rust types:
@@ -200,7 +213,7 @@ crate.
 `JevClient` (via `JevConfig`) talks to any System One-compatible
 endpoint, cloud or local:
 
-- `JevConfig::from_env` reads `TYPESAFE_API_KEY` (optional — no key
+- `JevConfig::from_env` reads `TYPESAFE_API_KEY` (optional; no key
   means no bearer header), `TYPESAFE_BASE_URL`, and `TYPESAFE_MODEL`;
   it loads a workspace `.env` if present.
 - `JevConfig::from_env_named` takes an `EnvNames` of caller-chosen
@@ -212,7 +225,7 @@ endpoint, cloud or local:
   control, and `JevConfig::model` to the local model's id.
 
 Local gateways typically need no key. Local 9B-class models can be
-slower than the cloud default 30s timeout — raise `JevConfig::timeout`
+slower than the cloud default 30s timeout; raise `JevConfig::timeout`
 if needed.
 
 Retries rate-limit (429) and overload (529) responses with capped
@@ -257,8 +270,8 @@ logged backoff retries mean rate limiting (429) or overload (529). The run
 succeeds if a retry lands.
 
 `make live-local` runs the same demo against a local System One-compatible
-gateway: set `JEV_LOCAL_ENDPOINT` to the full endpoint URL — include the
-`/v1/systemone` path; unlike `TYPESAFE_BASE_URL`, the flag is not joined —
+gateway: set `JEV_LOCAL_ENDPOINT` to the full endpoint URL (include the
+`/v1/systemone` path; unlike `TYPESAFE_BASE_URL`, the flag is not joined)
 and optionally `JEV_LOCAL_MODEL` to the model id (KevK5, Kev, Nimble 9B,
 whatever the gateway reports). An explicit `--endpoint` never sends a key,
 even if `TYPESAFE_API_KEY` is set. Failure signatures: `connection refused`
