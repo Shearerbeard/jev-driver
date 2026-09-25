@@ -270,14 +270,16 @@ logged backoff retries mean rate limiting (429) or overload (529). The run
 succeeds if a retry lands.
 
 `make live-local` runs the same demo against a local System One-compatible
-gateway: set `JEV_LOCAL_ENDPOINT` to the full endpoint URL (include the
-`/v1/systemone` path; unlike `TYPESAFE_BASE_URL`, the flag is not joined)
-and optionally `JEV_LOCAL_MODEL` to the model id (KevK5, Kev, Nimble 9B,
-whatever the gateway reports). An explicit `--endpoint` never sends a key,
-even if `TYPESAFE_API_KEY` is set. Failure signatures: `connection refused`
-means the wrong host/port; `invalid response body` means the gateway does
-not speak the systemone response shape; a 404 means the endpoint path is
-wrong.
+gateway. Set `JEV_LOCAL_ENDPOINT` to the full endpoint URL, including the
+`/v1/systemone` path; unlike `TYPESAFE_BASE_URL`, the flag is not joined.
+Optionally pass `JEV_LOCAL_MODEL` with the model id (KevK5, Kev 9B,
+Nimble, Von, whatever the gateway reports). An explicit `--endpoint` never
+sends a key, even if `TYPESAFE_API_KEY` is set. Local round-trips are
+verified against a self-hosted gateway serving `kev-latest` (Kev 9B) and
+`jev-latest` (Jev); the other models get listed here as they are tested.
+Failure signatures: `connection refused` means the wrong host/port;
+`invalid response body` means the gateway does not speak the systemone
+response shape; a 404 means the endpoint path is wrong.
 
 ## License
 

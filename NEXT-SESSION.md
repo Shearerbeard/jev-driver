@@ -26,8 +26,10 @@ env tests need distinct variable names), `make red` 11, live smoke
 green against the local gateway at `127.0.0.1:8009/v1/systemone`
 (`kev-latest` 208ms, `jev-latest` 149ms, keyless) and `make live`
 against the cloud. Gateway note: only `kev-latest`/`jev-latest` were
-exposed by `/v1/models` at smoke time; KevK5/Kev/Nimble 9B ids were
-not listed.
+exposed by `/v1/models` at smoke time. KevK5, Nimble, and Von exist but
+are untested; active experimentation is Kev 9B (local) and Jev (frontier
+remote). List further models in the README's live-local note as they are
+verified.
 
 ## Backtick serde-keys fix (branch fix/backtick-serde-keys)
 
