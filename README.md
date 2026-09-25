@@ -197,13 +197,30 @@ crate.
 
 ## Client behavior and limits
 
-`JevClient` (via `JevConfig::from_env`, reading `TYPESAFE_API_KEY`; loads a
-workspace `.env` if present) retries rate-limit (429) and overload (529)
-responses with capped exponential backoff, and is cheaply cloneable.
-Cancellation tokens are checked before the first attempt and between retries;
-an already-in-flight HTTP request is not abortable in 0.1.0. Backoff honors
-neither `Retry-After` headers nor jitter in 0.1.0. See `JevClient` docs for
-the full list.
+`JevClient` (via `JevConfig`) talks to any System One-compatible
+endpoint, cloud or local:
+
+- `JevConfig::from_env` reads `TYPESAFE_API_KEY` (optional — no key
+  means no bearer header), `TYPESAFE_BASE_URL`, and `TYPESAFE_MODEL`;
+  it loads a workspace `.env` if present.
+- `JevConfig::from_env_named` takes an `EnvNames` of caller-chosen
+  variable names when you don't want the `TYPESAFE_*` convention; every
+  slot is optional.
+- `JevConfig::base(url)` joins `v1/systemone` onto a pathless base URL
+  (e.g. `http://localhost:8080`); any URL that already has a path is
+  the complete endpoint. Set `JevConfig::endpoint` directly for full
+  control, and `JevConfig::model` to the local model's id.
+
+Local gateways typically need no key. Local 9B-class models can be
+slower than the cloud default 30s timeout — raise `JevConfig::timeout`
+if needed.
+
+Retries rate-limit (429) and overload (529) responses with capped
+exponential backoff, and the client is cheaply cloneable. Cancellation
+tokens are checked before the first attempt and between retries; an
+already-in-flight HTTP request is not abortable in 0.1.0. Backoff
+honors neither `Retry-After` headers nor jitter in 0.1.0. See
+`JevClient` docs for the full list.
 
 ## Non-goals (0.1.0)
 
@@ -223,9 +240,10 @@ the full list.
 ## Testing and the live smoke
 
 ```sh
-make check   # fmt + clippy + tests (offline)
-make red     # testapp acceptance harness (offline, recorded fixtures)
-make live    # live round-trip against api.typesafe.ai
+make check        # fmt + clippy + tests (offline)
+make red          # testapp acceptance harness (offline, recorded fixtures)
+make live         # live round-trip against api.typesafe.ai
+make live-local   # live round-trip against a local gateway
 ```
 
 Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`); `make check` is
@@ -237,6 +255,16 @@ root (`chmod 600`). Expect typed answers in roughly 70-500ms and a usage line
 with input/output token counts. Failure signatures: a 401 means the key;
 logged backoff retries mean rate limiting (429) or overload (529). The run
 succeeds if a retry lands.
+
+`make live-local` runs the same demo against a local System One-compatible
+gateway: set `JEV_LOCAL_ENDPOINT` to the full endpoint URL — include the
+`/v1/systemone` path; unlike `TYPESAFE_BASE_URL`, the flag is not joined —
+and optionally `JEV_LOCAL_MODEL` to the model id (KevK5, Kev, Nimble 9B,
+whatever the gateway reports). An explicit `--endpoint` never sends a key,
+even if `TYPESAFE_API_KEY` is set. Failure signatures: `connection refused`
+means the wrong host/port; `invalid response body` means the gateway does
+not speak the systemone response shape; a 404 means the endpoint path is
+wrong.
 
 ## License
 

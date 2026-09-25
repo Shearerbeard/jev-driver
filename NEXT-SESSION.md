@@ -5,6 +5,30 @@ State: complete and reviewed. Master has the close-out commits through
 frontier-reviewer + codex, final verdict PASS from both). Previous Gate A
 record and findings history: git history at f2c15c6 and earlier.
 
+## Configurable endpoint for local gateways (this session, uncommitted)
+
+`JevConfig` now targets any System One-compatible endpoint, cloud or
+local: `api_key` is `Option` (no key = no bearer header), `base_url`
+was renamed to `endpoint` (the complete URL; `JevConfig::base` joins
+`v1/systemone` onto pathless bases), and `EnvNames` +
+`from_env_named` take caller-chosen env var names. `from_env` keeps
+`TYPESAFE_*` with the key now optional. testapp grew `--endpoint`/
+`--model` (an explicit `--endpoint` never sends a key) and the Makefile
+grew `live-local` (`JEV_LOCAL_ENDPOINT`/`JEV_LOCAL_MODEL`).
+
+Gates: three rust-reviewer rounds (all PASS-WITH-CONDITIONS, all
+conditions fixed: unsafe-lint discipline on edition-2024 `set_var`,
+key trim/blank normalization, cloud-key leak on `--endpoint`,
+flag-value guards, plus a comment-reduction pass — the join rule is
+documented once, on `JevConfig::base`). `make check` 31 tests (one
+parallel-env race introduced by a reduction merge was caught and fixed:
+env tests need distinct variable names), `make red` 11, live smoke
+green against the local gateway at `127.0.0.1:8009/v1/systemone`
+(`kev-latest` 208ms, `jev-latest` 149ms, keyless) and `make live`
+against the cloud. Gateway note: only `kev-latest`/`jev-latest` were
+exposed by `/v1/models` at smoke time; KevK5/Kev/Nimble 9B ids were
+not listed.
+
 ## Backtick serde-keys fix (branch fix/backtick-serde-keys)
 
 Backtick references now validate against serde's serialized keys instead

@@ -1,4 +1,4 @@
-.PHONY: check fmt fmt-check clippy test red live
+.PHONY: check fmt fmt-check clippy test red live live-local
 
 # Default gate: lint-wave checks over the library crates (testapp is the
 # red-first acceptance harness and is gated separately via `make red`).
@@ -28,3 +28,8 @@ red:
 # Live smoke against api.typesafe.ai (reads .env / TYPESAFE_API_KEY).
 live:
 	cargo run -p testapp --bin triage -- --live
+
+# Live smoke against a local System One-compatible gateway, e.g.
+# JEV_LOCAL_ENDPOINT=http://localhost:8080/v1/systemone JEV_LOCAL_MODEL=kev-k5
+live-local:
+	cargo run -p testapp --bin triage -- --live $(if $(JEV_LOCAL_ENDPOINT),--endpoint "$(JEV_LOCAL_ENDPOINT)") $(if $(JEV_LOCAL_MODEL),--model "$(JEV_LOCAL_MODEL)")
