@@ -851,8 +851,8 @@ fn state_keys_skip_precedence_and_exemption_granularity() {
 #[test]
 fn jev_config_debug_redacts_the_api_key() -> Result<(), Box<dyn std::error::Error>> {
     let config = JevConfig {
-        api_key: "sk-super-secret".to_owned(),
-        base_url: "https://api.typesafe.ai".parse()?,
+        api_key: Some("sk-super-secret".to_owned()),
+        endpoint: "https://api.typesafe.ai/v1/systemone".parse()?,
         model: "jev-1.13.0".to_owned(),
         timeout: std::time::Duration::from_secs(30),
         retry: RetryConfig::default(),
@@ -866,5 +866,147 @@ fn jev_config_debug_redacts_the_api_key() -> Result<(), Box<dyn std::error::Erro
         debug.contains("<redacted>"),
         "Debug marks the redaction: {debug}"
     );
+    let keyless = format!("{:?}", JevConfig::cloud()?);
+    assert!(
+        keyless.contains("None"),
+        "keyless Debug shows None: {keyless}"
+    );
     Ok(())
+}
+
+#[test]
+fn cloud_config_targets_the_full_default_endpoint() -> JevResult<()> {
+    let config = JevConfig::cloud()?;
+    assert_eq!(
+        config.endpoint.as_str(),
+        "https://api.typesafe.ai/v1/systemone",
+        "cloud() must pin the complete endpoint"
+    );
+    assert!(config.api_key.is_none(), "cloud() ships no key");
+    JevClient::new(config)?;
+    Ok(())
+}
+
+#[test]
+fn pathless_base_urls_get_the_systemone_path_joined() -> Result<(), Box<dyn std::error::Error>> {
+    let bare = JevConfig::base("http://localhost:8080".parse()?)?;
+    assert_eq!(
+        bare.endpoint.as_str(),
+        "http://localhost:8080/v1/systemone",
+        "a bare host is a base URL"
+    );
+    let slashed = JevConfig::base("http://localhost:8080/".parse()?)?;
+    assert_eq!(
+        slashed.endpoint.as_str(),
+        "http://localhost:8080/v1/systemone",
+        "a lone slash is still a base URL"
+    );
+    let cloud_base = JevConfig::base("https://api.typesafe.ai".parse()?)?;
+    assert_eq!(
+        cloud_base.endpoint.as_str(),
+        "https://api.typesafe.ai/v1/systemone",
+        "the old TYPESAFE_BASE_URL shape must resolve identically"
+    );
+    Ok(())
+}
+
+#[test]
+fn url_with_path_is_the_complete_endpoint() -> Result<(), Box<dyn std::error::Error>> {
+    let full = JevConfig::base("http://localhost:9999/api/jev".parse()?)?;
+    assert_eq!(
+        full.endpoint.as_str(),
+        "http://localhost:9999/api/jev",
+        "a URL with a path must be used verbatim"
+    );
+    Ok(())
+}
+
+#[test]
+fn from_env_named_defaults_when_no_variables_are_named() -> JevResult<()> {
+    let config = JevConfig::from_env_named(EnvNames::default())?;
+    assert!(config.api_key.is_none(), "no key variable means no key");
+    assert_eq!(
+        config.endpoint.as_str(),
+        "https://api.typesafe.ai/v1/systemone",
+        "no URL variable means the cloud endpoint"
+    );
+    assert_eq!(
+        config.model, DEFAULT_MODEL,
+        "no model variable means default"
+    );
+    Ok(())
+}
+
+fn set_test_var(name: &str, value: &str) {
+    // SAFETY: test-only env write; every name passed here is
+    // collision-proof within this binary and read by exactly one test.
+    unsafe {
+        std::env::set_var(name, value);
+    }
+}
+
+#[test]
+fn from_env_named_reads_caller_named_variables() -> JevResult<()> {
+    set_test_var("JEV_TEST_KEY", "local-token");
+    set_test_var("JEV_TEST_URL", "http://localhost:1234");
+    set_test_var("JEV_TEST_MODEL", "kev-k5");
+    let config = JevConfig::from_env_named(EnvNames {
+        api_key: Some("JEV_TEST_KEY"),
+        url: Some("JEV_TEST_URL"),
+        model: Some("JEV_TEST_MODEL"),
+    })?;
+    assert_eq!(
+        config.api_key.as_deref(),
+        Some("local-token"),
+        "the caller-named key variable is read"
+    );
+    assert_eq!(
+        config.endpoint.as_str(),
+        "http://localhost:1234/v1/systemone",
+        "the caller-named URL variable is read and joined"
+    );
+    assert_eq!(
+        config.model, "kev-k5",
+        "the caller-named model variable is read"
+    );
+    Ok(())
+}
+
+#[test]
+fn from_env_named_normalizes_keys() -> JevResult<()> {
+    set_test_var("JEV_TEST_BLANK_KEY", "  ");
+    let blank = JevConfig::from_env_named(EnvNames {
+        api_key: Some("JEV_TEST_BLANK_KEY"),
+        ..EnvNames::default()
+    })?;
+    assert!(
+        blank.api_key.is_none(),
+        "a blank key must not become a bearer token"
+    );
+    set_test_var("JEV_TEST_PAD_KEY", " local-token ");
+    let padded = JevConfig::from_env_named(EnvNames {
+        api_key: Some("JEV_TEST_PAD_KEY"),
+        ..EnvNames::default()
+    })?;
+    assert_eq!(
+        padded.api_key.as_deref(),
+        Some("local-token"),
+        "padded keys are normalized, not sent verbatim"
+    );
+    Ok(())
+}
+
+#[test]
+fn from_env_named_names_the_offending_variable_on_a_bad_url() {
+    set_test_var("JEV_TEST_BAD_URL", "not a url");
+    match JevConfig::from_env_named(EnvNames {
+        url: Some("JEV_TEST_BAD_URL"),
+        ..EnvNames::default()
+    }) {
+        Err(err) => assert!(
+            err.to_string().contains("JEV_TEST_BAD_URL"),
+            "error must name the variable: {err}"
+        ),
+        Ok(config) => panic!("malformed URL must error, got {config:?}"),
+    }
 }

@@ -9,8 +9,9 @@ pub enum JevError {
     #[error("transport failure: {0}")]
     Transport(String),
 
-    /// `TYPESAFE_API_KEY` is not set or the server rejected it (401).
-    #[error("missing or invalid TYPESAFE_API_KEY")]
+    /// The server rejected the request as unauthorized (401): a
+    /// required key is missing or was rejected.
+    #[error("unauthorized (401): missing or rejected key")]
     Unauthorized,
 
     /// The API rejected the request body (422): invalid question shape.

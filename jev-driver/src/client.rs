@@ -17,7 +17,7 @@ use crate::wire::{WireRequestBody, WireResponse};
 /// thresholds; pin by default.
 pub const DEFAULT_MODEL: &str = "jev-1.13.0";
 
-const DEFAULT_BASE_URL: &str = "https://api.typesafe.ai";
+const DEFAULT_ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
 const SYSTEMONE_PATH: &str = "v1/systemone";
 
 /// Retry policy for 429/529 responses.
@@ -70,10 +70,11 @@ impl RetryConfig {
 /// out of logs; one derived `{:?}` would print it verbatim.
 #[derive(Clone)]
 pub struct JevConfig {
-    /// API key (`TYPESAFE_API_KEY`).
-    pub api_key: String,
-    /// API base URL (defaults to `https://api.typesafe.ai`).
-    pub base_url: Url,
+    /// Bearer token; local System One-compatible gateways typically
+    /// need none.
+    pub api_key: Option<String>,
+    /// The complete endpoint URL the request is POSTed to.
+    pub endpoint: Url,
     /// Pinned model id.
     pub model: String,
     /// Request timeout.
@@ -85,8 +86,8 @@ pub struct JevConfig {
 impl std::fmt::Debug for JevConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("JevConfig")
-            .field("api_key", &"<redacted>")
-            .field("base_url", &self.base_url)
+            .field("api_key", &self.api_key.as_ref().map(|_| "<redacted>"))
+            .field("endpoint", &self.endpoint)
             .field("model", &self.model)
             .field("timeout", &self.timeout)
             .field("retry", &self.retry)
@@ -94,27 +95,105 @@ impl std::fmt::Debug for JevConfig {
     }
 }
 
+/// Environment variable names for [`JevConfig::from_env_named`]: the
+/// library has no opinion about the names. Every slot is optional; a
+/// `None` (or missing) variable means the slot's default — no key, the
+/// cloud endpoint, [`DEFAULT_MODEL`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EnvNames<'a> {
+    /// Bearer-token variable.
+    pub api_key: Option<&'a str>,
+    /// Endpoint variable; see [`JevConfig::base`] for the resolution
+    /// rule.
+    pub url: Option<&'a str>,
+    /// Model-id variable.
+    pub model: Option<&'a str>,
+}
+
 impl JevConfig {
-    /// Builds a config from the environment: `TYPESAFE_API_KEY` (required),
-    /// `TYPESAFE_BASE_URL` and `TYPESAFE_MODEL` (optional). Loads a
-    /// workspace `.env` if present.
+    /// Cloud defaults: `https://api.typesafe.ai/v1/systemone`, the
+    /// pinned default model, no key (set the field for one).
+    pub fn cloud() -> JevResult<Self> {
+        Ok(Self::defaults(default_endpoint()?))
+    }
+
+    /// From a base URL: `v1/systemone` is joined onto a pathless URL;
+    /// a URL that already carries a path is used as the complete
+    /// endpoint.
+    pub fn base(base: Url) -> JevResult<Self> {
+        Ok(Self::defaults(resolve_endpoint(&base)?))
+    }
+
+    /// Builds a config from the environment: `TYPESAFE_API_KEY`
+    /// (optional — no key means no bearer header), `TYPESAFE_BASE_URL`
+    /// and `TYPESAFE_MODEL` (optional). Loads a workspace `.env` if
+    /// present.
     pub fn from_env() -> JevResult<Self> {
-        let _dotenv = dotenvy::dotenv();
-        let api_key = std::env::var("TYPESAFE_API_KEY").map_err(|_| JevError::Unauthorized)?;
-        Ok(Self {
-            api_key,
-            base_url: match std::env::var("TYPESAFE_BASE_URL") {
-                Ok(raw) => raw.parse().map_err(|_| {
-                    JevError::Transport(format!("invalid TYPESAFE_BASE_URL: {raw}"))
-                })?,
-                Err(_) => Url::parse(DEFAULT_BASE_URL)
-                    .map_err(|e| JevError::Transport(format!("invalid default base URL: {e}")))?,
-            },
-            model: std::env::var("TYPESAFE_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_owned()),
-            timeout: Duration::from_secs(30),
-            retry: RetryConfig::default(),
+        Self::from_env_named(EnvNames {
+            api_key: Some("TYPESAFE_API_KEY"),
+            url: Some("TYPESAFE_BASE_URL"),
+            model: Some("TYPESAFE_MODEL"),
         })
     }
+
+    /// Builds a config from caller-named environment variables; see
+    /// [`EnvNames`]. Loads a workspace `.env` if present.
+    pub fn from_env_named(names: EnvNames<'_>) -> JevResult<Self> {
+        let _dotenv = dotenvy::dotenv();
+        Self::from_sources(names, |name| std::env::var(name).ok())
+    }
+
+    fn from_sources(
+        names: EnvNames<'_>,
+        lookup: impl Fn(&str) -> Option<String>,
+    ) -> JevResult<Self> {
+        let endpoint =
+            match names
+                .url
+                .and_then(|name| lookup(name).map(|raw| (name, raw)))
+            {
+                Some((name, raw)) => resolve_endpoint(&Url::parse(&raw).map_err(|e| {
+                    JevError::Transport(format!("invalid {name} value `{raw}`: {e}"))
+                })?)?,
+                None => default_endpoint()?,
+            };
+        let mut config = Self::defaults(endpoint);
+        config.api_key = names
+            .api_key
+            .and_then(&lookup)
+            .map(|key| key.trim().to_owned())
+            .filter(|key| !key.is_empty());
+        config.model = names
+            .model
+            .and_then(lookup)
+            .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
+        Ok(config)
+    }
+
+    fn defaults(endpoint: Url) -> Self {
+        Self {
+            api_key: None,
+            endpoint,
+            model: DEFAULT_MODEL.to_owned(),
+            timeout: Duration::from_secs(30),
+            retry: RetryConfig::default(),
+        }
+    }
+}
+
+fn resolve_endpoint(raw: &Url) -> JevResult<Url> {
+    if raw.path() == "/" {
+        raw.join(SYSTEMONE_PATH).map_err(|e| {
+            JevError::Transport(format!("cannot join `{SYSTEMONE_PATH}` onto `{raw}`: {e}"))
+        })
+    } else {
+        Ok(raw.clone())
+    }
+}
+
+fn default_endpoint() -> JevResult<Url> {
+    Url::parse(DEFAULT_ENDPOINT)
+        .map_err(|e| JevError::Transport(format!("invalid default endpoint: {e}")))
 }
 
 /// Pluggable transport so tests never touch the network.
@@ -128,18 +207,21 @@ pub trait Transport: Send + Sync {
 pub struct ReqwestTransport {
     http: reqwest::Client,
     url: Url,
-    api_key: String,
+    api_key: Option<String>,
 }
 
 #[async_trait]
 impl Transport for ReqwestTransport {
     async fn post_systemone(&self, body: String) -> JevResult<WireResponse> {
-        let response = self
+        let mut request = self
             .http
             .post(self.url.clone())
-            .bearer_auth(&self.api_key)
             .header("content-type", "application/json")
-            .body(body)
+            .body(body);
+        if let Some(key) = &self.api_key {
+            request = request.bearer_auth(key);
+        }
+        let response = request
             .send()
             .await
             .map_err(|e| JevError::Transport(format!("request failed: {e}")))?;
@@ -189,14 +271,10 @@ impl JevClient {
             .timeout(config.timeout)
             .build()
             .map_err(|e| JevError::Transport(format!("http client init failed: {e}")))?;
-        let url = config
-            .base_url
-            .join(SYSTEMONE_PATH)
-            .map_err(|e| JevError::Transport(format!("invalid base URL join: {e}")))?;
         Ok(Self {
             transport: Arc::new(ReqwestTransport {
                 http,
-                url,
+                url: config.endpoint,
                 api_key: config.api_key,
             }),
             model: config.model,

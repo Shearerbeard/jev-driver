@@ -4,7 +4,7 @@ pub use crate::answer::{
     Answer, Answers, ChoiceData, ChoiceDecision, Confidence, FromAnswers, NoulDecision,
     Probability, ProbabilityMap, ScoreData, ScoreDecision, Usage,
 };
-pub use crate::client::{DEFAULT_MODEL, JevClient, JevConfig, RetryConfig};
+pub use crate::client::{DEFAULT_MODEL, EnvNames, JevClient, JevConfig, RetryConfig};
 pub use crate::error::{JevError, JevResult};
 pub use crate::question::{
     BuiltQuestion, ChoiceOptions, Decision, DecisionBuilder, DynChoice, QuestionKind, QuestionSet,
