@@ -39,4 +39,4 @@ jobs:
         with:
           tool: cargo-deny
       - name: Licenses / advisories / bans / sources
-        run: cargo deny check --workspace --all-features
+        run: cargo deny check --all-features
