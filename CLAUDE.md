@@ -33,9 +33,7 @@ targets, not raw `cargo clippy --all-targets`.
 
 ## Status
 
-0.1.0, master branch. Remote: github.com/Shearerbeard/jev-driver
-(public since 2026-09-25). Publish prep is complete (packaging,
-rename-safety, consumer proof - see NEXT-SESSION.md); the crates.io
-upload itself is the maintainer's to run (runbook in README
-"Publishing"). What is deliberately deferred past 0.1.0 is recorded
-in `NEXT-SESSION.md`.
+0.1.0, master branch, published on crates.io (jev-driver +
+jev-driver-macros, 2026-10-02). Remote:
+github.com/Shearerbeard/jev-driver (public). What is deliberately
+deferred past 0.1.0 is recorded in `NEXT-SESSION.md`.

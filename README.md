@@ -13,19 +13,14 @@ rubric becomes an enum's variants, your thresholds become methods on
 probability types. Unknown option keys, unasked answers, missing criteria, and
 unnormalized distributions are all errors, not silent defaults.
 
-Status: 0.1.0, public at github.com/Shearerbeard/jev-driver, not yet on
-crates.io. Consume it as a path dependency (`jev-driver = { path = "…" }`)
-until a release is published; the release runbook is at the bottom
-("Publishing"). Workspace layout below.
+Status: 0.1.0, [published on crates.io](https://crates.io/crates/jev-driver)
+(github.com/Shearerbeard/jev-driver). Workspace layout below.
 
 ## Install
 
-Until a crates.io release exists, consume the runtime crate as a path
-dependency:
-
 ```toml
 [dependencies]
-jev-driver = { path = "path/to/jev-driver/jev-driver" }
+jev-driver = "0.1"
 ```
 
 The workspace clones with `testapp/`, an offline-runnable demo: `make red`

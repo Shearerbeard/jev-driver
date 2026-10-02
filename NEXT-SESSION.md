@@ -1,12 +1,13 @@
-# Handoff - jev-driver 0.1.0, publish-prep complete
+# Handoff - jev-driver 0.1.0, published
 
-State: complete, every gate green (2026-10-02). Each publish blocker
-from the previous handoff has landed. The session stopped at a
-verified dry-run per the maintainer decision; the upload is one
-command away (README "Publishing"). Earlier waves - the soundness
-close-out through 1bcb123, endpoint configurability, the backtick
-serde-keys fix, the dual-review hardening pass - are recorded below
-and in git history.
+State: 0.1.0 is live on crates.io (jev-driver and jev-driver-macros,
+2026-10-02, uploaded by the maintainer after a gated session).
+Verified post-publish: docs.rs builds both crates, and a fresh
+consumer app (`cargo add jev-driver`) builds and runs the triage demo
+from the real registry. The publish-prep session's work and review
+record are below; earlier waves (soundness close-out through 1bcb123,
+endpoint configurability, backtick serde-keys fix, dual-review
+hardening) live further down and in git history.
 
 ## Publish-prep session (this file's current state)
 
@@ -58,19 +59,14 @@ example lint/wildcard arm). Empirical findings worth keeping:
 - `cargo vendor` uses the flat `vendor/<name>/` layout on this
   toolchain; version subdirectories are silently ignored.
 
-## Publish readiness - REMAINING (the maintainer's checklist)
+## Publish - DONE 2026-10-02
 
-Everything above is done. What is left, in order (README "Publishing"):
-
-1. `cargo publish -p jev-driver-macros` (dry-run verified green).
-2. Wait for index propagation, then `cargo publish --dry-run -p
-   jev-driver` (first real dry-run possible; the index lag note in the
-   runbook covers retry). Optionally re-point the scratch consumer at
-   the real runtime tarball and rerun.
-3. `cargo publish -p jev-driver`, tag `v0.1.0`, swap the README
-   install snippet to the crates.io line, date the CHANGELOG entry.
-4. Confirm docs.rs builds both crates (intra-doc links verified
-   locally with `-D warnings`).
+The maintainer checklist ran end to end: `cargo login` (human),
+macros published first, index propagated on the first retry, runtime
+dry-run green, runtime published, `v0.1.0` tagged, README install
+snippet swapped to the crates.io line, CHANGELOG entry dated. Next
+release: bump `workspace.version`, add a dated CHANGELOG entry,
+re-run the gates, and follow README "Publishing" unchanged.
 
 ## Configurable endpoint for local gateways (this session, b645166 + b25bca4)
 

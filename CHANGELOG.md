@@ -3,7 +3,7 @@
 Notable changes to jev-driver. Format: Keep a Changelog. Before 1.0 a
 minor bump may break anything; read the entry before upgrading.
 
-## [Unreleased] - 0.1.0, first release
+## [0.1.0] - 2026-10-02 - first release
 
 ### Added
 
