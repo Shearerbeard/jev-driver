@@ -58,6 +58,12 @@ example lint/wildcard arm). Empirical findings worth keeping:
   comment in `examples/triage.rs`).
 - `cargo vendor` uses the flat `vendor/<name>/` layout on this
   toolchain; version subdirectories are silently ignored.
+- cargo-deny's CLI takes no `--workspace` or `--all-features` flags
+  (feature selection lives in deny.toml `[graph]`); a bare
+  `cargo deny check` from the root covers the whole workspace. The
+  CI job hit this twice - and the second flag was caught locally but
+  a piped command masked its exit code, repeating the old
+  "check gate exit codes directly" lesson.
 
 ## Publish - DONE 2026-10-02
 
