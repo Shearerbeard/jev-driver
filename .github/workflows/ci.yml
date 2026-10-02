@@ -34,6 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
         with:
-          arguments: --workspace --all-features check
+          tool: cargo-deny
+      - name: Licenses / advisories / bans / sources
+        run: cargo deny check --workspace --all-features
