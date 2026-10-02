@@ -1,6 +1,6 @@
-# TODO: run `cargo deny check` once cargo-deny is installed and settle the
-# license allow-list against the real dependency tree (reqwest -> native-tls
-# -> openssl-sys pulls in the OpenSSL license, webpki roots, etc.).
+# License allow-list verified green against the full dependency tree
+# (cargo deny check: advisories, bans, licenses, sources all ok,
+# 2026-10-02). Re-run after any dependency bump.
 [graph]
 all-features = true
 

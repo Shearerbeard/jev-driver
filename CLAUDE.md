@@ -33,6 +33,9 @@ targets, not raw `cargo clippy --all-targets`.
 
 ## Status
 
-0.1.0 prototype, master branch. Remote: github.com/Shearerbeard/jev-driver
-(private). The `repository` field is set in Cargo.toml; a crates.io publish
-is deferred until the repo goes public.
+0.1.0, master branch. Remote: github.com/Shearerbeard/jev-driver
+(public since 2026-09-25). Publish prep is complete (packaging,
+rename-safety, consumer proof - see NEXT-SESSION.md); the crates.io
+upload itself is the maintainer's to run (runbook in README
+"Publishing"). What is deliberately deferred past 0.1.0 is recorded
+in `NEXT-SESSION.md`.

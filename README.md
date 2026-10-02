@@ -13,10 +13,10 @@ rubric becomes an enum's variants, your thresholds become methods on
 probability types. Unknown option keys, unasked answers, missing criteria, and
 unnormalized distributions are all errors, not silent defaults.
 
-Status: 0.1.0 prototype in a private repo
-(github.com/Shearerbeard/jev-driver), not yet on crates.io. Consume it as
-a path dependency (`jev-driver = { path = "…" }`) until a release is
-published. Workspace layout at the bottom.
+Status: 0.1.0, public at github.com/Shearerbeard/jev-driver, not yet on
+crates.io. Consume it as a path dependency (`jev-driver = { path = "…" }`)
+until a release is published; the release runbook is at the bottom
+("Publishing"). Workspace layout below.
 
 ## Install
 
@@ -162,7 +162,7 @@ let decision = schema.query().state(&state)?.ask("department")?.build()?;
 
 let raw = client.evaluate_raw(&decision).await?;
 let typed: TicketTriageAnswers = raw.parse_as()?;   // strict bridge
-let owner = raw.choice("owner")?;                    // or stay dynamic
+let owner = raw.choice("owner")?;                    // or stay ad-hoc
 ```
 
 Note: questions marked `criteria_source: "runtime"` are a derive-surface
@@ -193,7 +193,7 @@ actually emits, never Rust field names:
   `JevState`) plus the question's own option keys and structured
   instruction data fields, failing with a typed `DanglingStateRef`.
 - Structs whose key set serde decides at runtime (`flatten`) are
-  exempt, as are dynamic questions added after `build()` via
+  exempt, as are ad-hoc questions added after `build()` via
   `with_question`; criteria text on choice options and parts-form
   instructions are not scanned for references.
 
@@ -249,6 +249,8 @@ honors neither `Retry-After` headers nor jitter in 0.1.0. See
   `JevScore`, `JevState`, `JevQuestions`) plus `JevInstructions`
 - `testapp/` - ticket-triage acceptance harness; the executable spec for the
   public API
+- `rename-test/` - rename-safety check: the derives must expand under a
+  renamed dependency (`make rename-test`)
 
 ## Testing and the live smoke
 
@@ -261,6 +263,18 @@ make live-local   # live round-trip against a local gateway
 
 Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`); `make check` is
 the gate before any commit. `CLAUDE.md` records the agent-facing conventions.
+
+Three tiers, all through the Makefile:
+
+- **Unit** - `make check`: fmt + clippy + the library test suites, offline.
+- **Acceptance** - `make red`: the testapp harness drives the public API
+  the way a consumer would, against recorded fixtures; it is the
+  executable spec.
+- **Live smoke** - `make live` / `make live-local`: real round-trips,
+  cloud or local gateway.
+
+The runtime crate ships a runnable offline demo:
+`cargo run -p jev-driver --example triage` (recorded response, no key).
 
 `make live` runs the triage demo against the real API. It needs
 `TYPESAFE_API_KEY` in the environment or a gitignored `.env` at the workspace
@@ -280,6 +294,25 @@ verified against a self-hosted gateway serving `kev-latest` (Kev 9B) and
 Failure signatures: `connection refused` means the wrong host/port;
 `invalid response body` means the gateway does not speak the systemone
 response shape; a 404 means the endpoint path is wrong.
+
+## Publishing (maintainers)
+
+Both crates publish from the workspace root, macros first - the runtime
+crate depends on it:
+
+```sh
+cargo publish --dry-run -p jev-driver-macros   # verify the tarball
+cargo publish -p jev-driver-macros
+cargo publish --dry-run -p jev-driver
+cargo publish -p jev-driver
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+After the upload: swap the Install snippet above to the crates.io line
+(`jev-driver = "0.1"`), date the `CHANGELOG.md` entry, and confirm
+docs.rs builds both crates. `testapp` stays local. The registry index
+can lag a minute or two behind the macros upload; if the runtime
+dry-run cannot resolve `jev-driver-macros`, wait and retry it.
 
 ## License
 

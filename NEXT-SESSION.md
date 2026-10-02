@@ -1,9 +1,76 @@
-# Handoff - jev-driver 0.1.0 prototype, soundness-hardened
+# Handoff - jev-driver 0.1.0, publish-prep complete
 
-State: complete and reviewed. Master has the close-out commits through
-1bcb123 plus this session's soundness pass (three dual-review rounds,
-frontier-reviewer + codex, final verdict PASS from both). Previous Gate A
-record and findings history: git history at f2c15c6 and earlier.
+State: complete, every gate green (2026-10-02). Each publish blocker
+from the previous handoff has landed. The session stopped at a
+verified dry-run per the maintainer decision; the upload is one
+command away (README "Publishing"). Earlier waves - the soundness
+close-out through 1bcb123, endpoint configurability, the backtick
+serde-keys fix, the dual-review hardening pass - are recorded below
+and in git history.
+
+## Publish-prep session (this file's current state)
+
+Landed, all gates green (`make check` 31+6+ui, `make red` 11,
+`make rename-test` 1, fmt/clippy/-D warnings clean, `cargo doc -D
+warnings` clean, `cargo deny check` green):
+
+- `proc-macro-crate` adopted: the derives resolve the consumer's
+  dependency name at expansion (`crate_path()` in macros `util.rs`);
+  a renamed dependency works. `rename-test/` member proves it with
+  every derive plus both hidden helpers (`make rename-test`).
+- Macro-addressed surface centralized: `#[doc(hidden)] __private`
+  now hosts `score_editor_levels` (moved out of `question`),
+  `validate_state_refs` (also still public IR API at `refs::`), and
+  `insert_question` (dedups the three duplicate-id checks).
+- Packaging: `readme = "../README.md"` + LICENSE files in both
+  tarballs (verified via `cargo package --list`), `publish = false`
+  on testapp and rename-test, macros pinned `=0.1.0`.
+- `dotenv` feature (default on) gates dotenvy; default behavior
+  unchanged, `default-features = false` drops the `.env` load.
+- Prelude slimmed of `WireRequestBody`/`WireResponse`/`WireAnswer`
+  (still public at `wire::`). In-repo consumers updated.
+- Cheap wins: `Usage: From<WireUsage>`; `is_non_empty` on the
+  structured form now judges the embedded `question` string (data-only
+  maps and blank questions reject - stricter wire validation,
+  acceptance fixtures unaffected); intra-doc links fixed.
+- Docs: README truth-fix (repo public since 2026-09-25, not private),
+  publish runbook, three test tiers, rename-test listed; CHANGELOG.md
+  added (0.1.0 entry, dated at publish); CI workflow (fmt, lib-scope
+  clippy, unit + acceptance + rename tests, cargo-deny).
+- Consumer proof: scratch app outside the workspace resolved
+  `jev-driver = "0.1"` from a local directory registry (macros from
+  its real tarball, runtime from source with the exact
+  path-to-version rewrite). Fully offline build + run: typed answers,
+  tampered noul rejected at the boundary.
+
+Review record: every stage dual-gated (self + rust-reviewer or
+frontier-reviewer); three FAIL verdicts were returned and fixed in
+closed loops (docs truth-fix assertions, crate_path error propagation,
+example lint/wildcard arm). Empirical findings worth keeping:
+
+- `cargo package`/`publish --dry-run` for the runtime CANNOT succeed
+  until macros exists on the crates.io index (checked against the real
+  index; `[patch.crates-io]` does not bypass it). Macros dry-run is
+  green; the runbook's macros-first order is mandatory, not advisory.
+- The runtime's own examples/tests expand derives via the Itself path;
+  they need the macro-addressed names at their crate root (see the
+  comment in `examples/triage.rs`).
+- `cargo vendor` uses the flat `vendor/<name>/` layout on this
+  toolchain; version subdirectories are silently ignored.
+
+## Publish readiness - REMAINING (the maintainer's checklist)
+
+Everything above is done. What is left, in order (README "Publishing"):
+
+1. `cargo publish -p jev-driver-macros` (dry-run verified green).
+2. Wait for index propagation, then `cargo publish --dry-run -p
+   jev-driver` (first real dry-run possible; the index lag note in the
+   runbook covers retry). Optionally re-point the scratch consumer at
+   the real runtime tarball and rerun.
+3. `cargo publish -p jev-driver`, tag `v0.1.0`, swap the README
+   install snippet to the crates.io line, date the CHANGELOG entry.
+4. Confirm docs.rs builds both crates (intra-doc links verified
+   locally with `-D warnings`).
 
 ## Configurable endpoint for local gateways (this session, b645166 + b25bca4)
 
@@ -130,23 +197,14 @@ testing — reviewer "first three changes"):
   intra-doc links (schema.rs `DynChoice`, macros lib.rs);
   `is_non_empty` on structured form should check the `question` string.
 
-## Publish readiness (after API testing)
+## Publish readiness (after API testing) - LANDED 2026-10-02
 
-Deferred deliberately: land these once the API surface has been
-consumed and validated, just before making the repo public.
-
-- IMPORTANT — `proc-macro-crate` adoption: macros generate hardcoded
-  `::jev_driver::` paths, so a renamed dependency breaks expansion.
-  Resolve the real crate name at expansion (~30 lines + rename test).
-- Package the README: `readme = "../README.md"` on both crates
-  (verified: Cargo packages it).
-- Ship the license texts: `include` both LICENSE files or copy them
-  into each crate (neither tarball carries them today).
-- `publish = false` on testapp.
-- Pin `jev-driver-macros` exact (`=0.1.0`, thiserror pattern).
-- Sequence: flip repo public -> check name availability -> publish
-  macros first, then runtime -> tag v0.1.0 -> swap the README install
-  snippet to the crates.io line.
+Every item on this list landed in the publish-prep session (see the
+top of this file): `proc-macro-crate` adoption + rename test, readme
+packaging, license texts in both tarballs, `publish = false` on
+testapp, exact-pin of macros, plus the `dotenv` feature gate, prelude
+slim, and the cheap-wins cluster. What remains is the upload itself
+(README "Publishing").
 
 ## Deferred (recorded by both reviewers, none blocking)
 
@@ -161,9 +219,17 @@ consumed and validated, just before making the repo public.
   `iter_names()`, `option_null()`; unreachable static-empty-score branch.
 - Malformed `#[jev]` field attrs are swallowed silently in state.rs.
 - `Limits` is a constants table wearing a pub-fields struct.
-- Publish blockers: repo is private and `proc-macro-crate` not adopted
-  (remote added and `repository` field set 2026-09-22).
 - No `Retry-After`/jitter; in-flight requests not abortable.
+
+## Maintainer scope decisions for the 0.1.0 publish (2026-10-02)
+
+- `Decision` rename (request vs per-question outcome overload): keep
+  for 0.1.0, rename in 0.2 before a broad audience consumes it.
+- Reviewer hardening list (IR-as-authority, one discriminant/limits
+  table, criteria channel on `SchemaQueryBuilder`): only the cheap
+  wins land pre-publish; the rest stay deferred.
+- Publish execution stops at a verified dry-run; the maintainer runs
+  `cargo publish` (README "Publishing").
 
 ## Relationship to agent-driver-rs
 
