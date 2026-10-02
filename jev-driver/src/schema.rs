@@ -330,8 +330,9 @@ impl DecisionSchema {
 /// questions against some state, producing a wire-ready [`Decision`].
 ///
 /// Note: questions marked `criteria_source: "runtime"` cannot be executed
-/// from this builder in 0.1.0 — runtime criteria are a derive-surface
-/// feature (criteria editors); use [`DynChoice`](crate::DynChoice) for
+/// from this builder in 0.1.0 - runtime criteria are a derive-surface
+/// feature (criteria editors); use
+/// [`DynChoice`](crate::question::DynChoice) for
 /// fully dynamic composition.
 pub struct SchemaQueryBuilder<'a> {
     schema: &'a DecisionSchema,

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["jev-driver", "jev-driver-macros", "testapp"]
+members = ["jev-driver", "jev-driver-macros", "testapp", "rename-test"]
 default-members = ["jev-driver", "jev-driver-macros"]
 
 [workspace.package]
@@ -24,6 +24,7 @@ dotenvy = "0.15"
 syn = { version = "2", features = ["full", "extra-traits"] }
 quote = "1"
 proc-macro2 = "1"
+proc-macro-crate = "3"
 trybuild = "1"
 
 # =============================================================================

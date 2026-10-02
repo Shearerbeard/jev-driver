@@ -1,4 +1,4 @@
-.PHONY: check fmt fmt-check clippy test red live live-local
+.PHONY: check fmt fmt-check clippy test red rename-test live live-local
 
 # Default gate: lint-wave checks over the library crates (testapp is the
 # red-first acceptance harness and is gated separately via `make red`).
@@ -24,6 +24,11 @@ test:
 # stages land; required green from Stage 4 onward.
 red:
 	cargo test -p testapp
+
+# Rename safety: the derives must expand under a renamed dependency
+# (proc-macro-crate resolution, not hardcoded ::jev_driver:: paths).
+rename-test:
+	cargo test -p rename-test
 
 # Live smoke against api.typesafe.ai (reads .env / TYPESAFE_API_KEY).
 live:

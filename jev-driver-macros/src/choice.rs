@@ -4,7 +4,9 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::{companion_ident, jev_string_attrs, reject_generics, required, to_snake_case};
+use crate::util::{
+    companion_ident, crate_path, jev_string_attrs, reject_generics, required, to_snake_case,
+};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     reject_generics(input, "JevChoice")?;
@@ -13,6 +15,7 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     let attrs = jev_string_attrs(&input.attrs)?;
     let id = required(&attrs, "id", "JevChoice", input)?;
     let instructions = required(&attrs, "instructions", "JevChoice", input)?;
+    let jev = crate_path()?;
 
     let Data::Enum(data) = &input.data else {
         return Err(syn::Error::new_spanned(input, "JevChoice requires an enum"));
@@ -79,7 +82,7 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             quote! {
                 (
                     #key.to_owned(),
-                    ::core::option::Option::Some(::jev_driver::Instructions::text(#text)),
+                    ::core::option::Option::Some(#jev::Instructions::text(#text)),
                 )
             }
         });
@@ -88,22 +91,22 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         quote! { ::std::collections::BTreeMap::new() }
     };
     let source = if all_static {
-        quote! { ::jev_driver::CriteriaSource::Static }
+        quote! { #jev::CriteriaSource::Static }
     } else {
-        quote! { ::jev_driver::CriteriaSource::Runtime }
+        quote! { #jev::CriteriaSource::Runtime }
     };
 
     Ok(quote! {
         #[automatically_derived]
-        impl ::jev_driver::ChoiceOptions for #name {
+        impl #jev::ChoiceOptions for #name {
             const OPTIONS: &'static [&'static str] = &[#(#keys),*];
 
-            fn from_option(option: &str) -> ::jev_driver::JevResult<Self> {
+            fn from_option(option: &str) -> #jev::JevResult<Self> {
                 match option {
                     #(#keys => ::core::result::Result::Ok(#name::#idents),)*
-                    _ => ::core::result::Result::Err(::jev_driver::JevError::UnknownOption {
+                    _ => ::core::result::Result::Err(#jev::JevError::UnknownOption {
                         option: ::core::convert::From::from(option),
-                        id: <#name as ::jev_driver::QuestionType>::question_id().to_owned(),
+                        id: <#name as #jev::QuestionType>::question_id().to_owned(),
                     }),
                 }
             }
@@ -117,22 +120,22 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         #[derive(::core::fmt::Debug, ::core::clone::Clone)]
         #vis struct #editor {
-            #(pub #field_idents: ::jev_driver::Instructions,)*
+            #(pub #field_idents: #jev::Instructions,)*
         }
 
         #[automatically_derived]
-        impl ::jev_driver::QuestionType for #name {
-            const KIND: ::jev_driver::QuestionKind = ::jev_driver::QuestionKind::Choice;
-            type Decision = ::jev_driver::ChoiceDecision<#name>;
+        impl #jev::QuestionType for #name {
+            const KIND: #jev::QuestionKind = #jev::QuestionKind::Choice;
+            type Decision = #jev::ChoiceDecision<#name>;
             type CriteriaEditor = #editor;
 
             fn question_id() -> &'static str {
                 #id_lit
             }
 
-            fn spec() -> ::jev_driver::QuestionSpec {
-                ::jev_driver::QuestionSpec::Choice {
-                    instructions: ::jev_driver::Instructions::text(#instructions_lit),
+            fn spec() -> #jev::QuestionSpec {
+                #jev::QuestionSpec::Choice {
+                    instructions: #jev::Instructions::text(#instructions_lit),
                     criteria: #static_map,
                     criteria_source: #source,
                 }
@@ -140,11 +143,11 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             fn compose_wire(
                 editor: ::core::option::Option<&#editor>,
-            ) -> ::jev_driver::JevResult<::jev_driver::WireQuestion> {
+            ) -> #jev::JevResult<#jev::WireQuestion> {
                 match editor {
                     ::core::option::Option::Some(ed) => {
-                        ::core::result::Result::Ok(::jev_driver::WireQuestion::Choice {
-                            instructions: ::jev_driver::Instructions::text(#instructions_lit),
+                        ::core::result::Result::Ok(#jev::WireQuestion::Choice {
+                            instructions: #jev::Instructions::text(#instructions_lit),
                             criteria: [
                                 #(
                                     (
@@ -165,9 +168,9 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             fn parse(
                 id: &str,
-                answer: &::jev_driver::Answer,
-            ) -> ::jev_driver::JevResult<Self::Decision> {
-                ::jev_driver::ChoiceDecision::<#name>::parse(id, answer)
+                answer: &#jev::Answer,
+            ) -> #jev::JevResult<Self::Decision> {
+                #jev::ChoiceDecision::<#name>::parse(id, answer)
             }
         }
     })

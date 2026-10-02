@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use jev_driver::fake::FakeTransport;
 use jev_driver::prelude::*;
+use jev_driver::wire::WireResponse;
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 

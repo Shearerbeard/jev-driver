@@ -9,6 +9,7 @@
 use std::time::Instant;
 
 use jev_driver::prelude::*;
+use jev_driver::wire::WireResponse;
 use testapp::questions;
 use testapp::questions::{Department, TicketTriageAnswers};
 

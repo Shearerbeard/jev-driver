@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 
 use jev_driver::prelude::*;
+use jev_driver::wire::WireResponse;
 use serde_json::json;
 
 #[test]
@@ -20,7 +21,17 @@ fn instructions_round_trip_all_three_forms() -> Result<(), Box<dyn std::error::E
         matches!(structured, Instructions::Structured(_)),
         "object form parses as structured"
     );
-    assert!(structured.is_non_empty(), "structured form is non-empty");
+    assert!(
+        !structured.is_non_empty(),
+        "structured form without a question string is empty"
+    );
+
+    let questioned: Instructions =
+        serde_json::from_value(json!({ "question": "Which team?", "a": 1 }))?;
+    assert!(questioned.is_non_empty(), "embedded question is content");
+
+    let blank: Instructions = serde_json::from_value(json!({ "question": "   " }))?;
+    assert!(!blank.is_non_empty(), "blank question is empty");
 
     let parts: Instructions = serde_json::from_value(json!(["x", 2]))?;
     assert!(

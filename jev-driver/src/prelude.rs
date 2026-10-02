@@ -12,9 +12,7 @@ pub use crate::question::{
 };
 pub use crate::refs::{StateKeys, validate_state_refs};
 pub use crate::schema::{CriteriaSource, DecisionSchema, QuestionSpec, SCHEMA_VERSION};
-pub use crate::wire::{
-    Instructions, NoulCriteria, WireAnswer, WireQuestion, WireRequestBody, WireResponse,
-};
+pub use crate::wire::{Instructions, NoulCriteria, WireQuestion};
 
 pub use jev_driver_macros::{
     JevChoice, JevInstructions, JevNoul, JevQuestions, JevScore, JevState,

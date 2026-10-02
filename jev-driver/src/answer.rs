@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 
 use crate::error::{JevError, JevResult};
 use crate::question::{ChoiceOptions, Decision, ScoreLevels};
-use crate::wire::{WireAnswer, WireQuestion, WireResponse};
+use crate::wire::{WireAnswer, WireQuestion, WireResponse, WireUsage};
 
 /// Tolerance for probability-distribution sums (float rounding headroom).
 pub const SUM_TOLERANCE: f64 = 0.05;
@@ -184,6 +184,15 @@ pub struct Usage {
     pub output_tokens: u64,
 }
 
+impl From<WireUsage> for Usage {
+    fn from(usage: WireUsage) -> Self {
+        Self {
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
+        }
+    }
+}
+
 /// The parsed response: validated against the decision that produced it.
 /// The answer map is private: values enter only through
 /// [`Answers::from_wire`], so the strictness contract is a property of
@@ -229,10 +238,7 @@ impl Answers {
         Ok(Self {
             model,
             answers: parsed,
-            usage: Usage {
-                input_tokens: usage.input_tokens,
-                output_tokens: usage.output_tokens,
-            },
+            usage: usage.into(),
         })
     }
 

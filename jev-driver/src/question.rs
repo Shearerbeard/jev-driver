@@ -124,13 +124,7 @@ impl Decision {
 
     /// Adds a dynamically-built question (e.g. from [`DynChoice`]).
     pub fn with_question(mut self, built: BuiltQuestion) -> JevResult<Self> {
-        if self.questions.contains_key(&built.id) {
-            return Err(JevError::Schema(format!(
-                "duplicate question id `{}`",
-                built.id
-            )));
-        }
-        self.questions.insert(built.id, built.question);
+        crate::__private::insert_question(&mut self.questions, &built.id, built.question)?;
         Ok(self)
     }
 }
@@ -151,13 +145,7 @@ impl DecisionBuilder {
 
     /// Adds a built question.
     pub fn with_question(mut self, built: BuiltQuestion) -> JevResult<Self> {
-        if self.questions.contains_key(&built.id) {
-            return Err(JevError::Schema(format!(
-                "duplicate question id `{}`",
-                built.id
-            )));
-        }
-        self.questions.insert(built.id, built.question);
+        crate::__private::insert_question(&mut self.questions, &built.id, built.question)?;
         Ok(self)
     }
 
@@ -298,23 +286,4 @@ impl<Q: QuestionSet> Default for RequestBuilder<Q> {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Helper used by the score derive's `compose_wire` when an editor is
-/// given: validates the editor carries exactly `levels` entries.
-pub fn score_editor_levels(id: &str, levels: u8, editor: &[Instructions]) -> JevResult<()> {
-    if editor.len() != levels as usize {
-        return Err(JevError::Schema(format!(
-            "score `{id}` needs {levels} rubric levels in its criteria editor, got {}",
-            editor.len()
-        )));
-    }
-    for (index, entry) in editor.iter().enumerate() {
-        if !entry.is_non_empty() {
-            return Err(JevError::Schema(format!(
-                "score `{id}` criteria editor level {index} is empty"
-            )));
-        }
-    }
-    Ok(())
 }

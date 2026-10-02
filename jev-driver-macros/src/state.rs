@@ -6,13 +6,14 @@ use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
 use crate::serde_names;
-use crate::util::{jev_string_attrs, reject_generics};
+use crate::util::{crate_path, jev_string_attrs, reject_generics};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     reject_generics(input, "JevState")?;
     let name = &input.ident;
     let attrs = jev_string_attrs(&input.attrs)?;
     let describe = attrs.get("describe");
+    let jev = crate_path()?;
 
     let Data::Struct(data) = &input.data else {
         return Err(syn::Error::new_spanned(input, "JevState requires a struct"));
@@ -64,8 +65,8 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         #[automatically_derived]
         impl #name {
             /// The state documentation contributed to the schema artifact.
-            pub fn state_spec() -> ::jev_driver::StateSpec {
-                ::jev_driver::StateSpec {
+            pub fn state_spec() -> #jev::StateSpec {
+                #jev::StateSpec {
                     describe: #describe_expr,
                     fields: #fields_expr,
                 }
@@ -73,7 +74,7 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         #[automatically_derived]
-        impl ::jev_driver::StateKeys for #name {
+        impl #jev::StateKeys for #name {
             const STATE_KEYS: ::core::option::Option<&'static [&'static str]> = #keys_expr;
         }
     })

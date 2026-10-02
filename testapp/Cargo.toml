@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Red-first acceptance harness for jev-driver: ticket triage demo"
+publish = false
 
 [[bin]]
 name = "triage"

@@ -3,6 +3,7 @@
 //! expected to fail (red) until Stages 1-3 land.
 
 use jev_driver::prelude::*;
+use jev_driver::wire::{WireRequestBody, WireResponse};
 use serde_json::json;
 use testapp::questions::*;
 

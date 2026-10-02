@@ -4,8 +4,29 @@ use std::collections::BTreeMap;
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use quote::format_ident;
+use quote::{format_ident, quote};
 use syn::DeriveInput;
+
+/// Resolves the consumer's path to the jev-driver runtime crate, so a
+/// renamed dependency (`jev = { package = "jev-driver" }`) still
+/// expands. `FoundCrate::Itself` (jev-driver's own test targets)
+/// resolves to `crate`, where the runtime's root re-exports live.
+pub(crate) fn crate_path() -> syn::Result<TokenStream> {
+    use proc_macro_crate::FoundCrate;
+    use proc_macro_crate::crate_name;
+
+    match crate_name("jev-driver") {
+        Ok(FoundCrate::Itself) => Ok(quote! { crate }),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = format_ident!("{name}");
+            Ok(quote! { ::#ident })
+        }
+        Err(err) => Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            format!("jev-driver must be a dependency of this crate: {err}"),
+        )),
+    }
+}
 
 /// Parses every `#[jev(key = value)]` attribute into a map. Values are
 /// string literals or bare type paths (e.g. `state = TicketState`).

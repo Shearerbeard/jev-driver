@@ -8,10 +8,12 @@ repository.workspace = true
 description = "Typed Rust driver for TypeSafe AI's Jev (System One) decision model"
 keywords = ["jev", "typesafe", "decision", "llm", "ai"]
 categories = ["api-bindings", "development-tools"]
+readme = "../README.md"
 
 [features]
-default = []
+default = ["dotenv"]
 test-support = []
+dotenv = ["dep:dotenvy"]
 
 [dependencies]
 serde = { workspace = true }
@@ -23,8 +25,8 @@ tokio-util = { workspace = true }
 async-trait = { workspace = true }
 url = { workspace = true }
 tracing = { workspace = true }
-dotenvy = { workspace = true }
-jev-driver-macros = { path = "../jev-driver-macros", version = "0.1.0" }
+dotenvy = { workspace = true, optional = true }
+jev-driver-macros = { path = "../jev-driver-macros", version = "=0.1.0" }
 
 [dev-dependencies]
 jev-driver = { path = ".", features = ["test-support"] }

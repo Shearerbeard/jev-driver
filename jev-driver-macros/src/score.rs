@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::util::{companion_ident, jev_string_attrs, reject_generics, required};
+use crate::util::{companion_ident, crate_path, jev_string_attrs, reject_generics, required};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     reject_generics(input, "JevScore")?;
@@ -13,6 +13,7 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     let attrs = jev_string_attrs(&input.attrs)?;
     let id = required(&attrs, "id", "JevScore", input)?;
     let instructions = required(&attrs, "instructions", "JevScore", input)?;
+    let jev = crate_path()?;
 
     let Data::Enum(data) = &input.data else {
         return Err(syn::Error::new_spanned(input, "JevScore requires an enum"));
@@ -55,22 +56,22 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     let static_vec = if all_static {
         let entries = variants.iter().map(|(_, criteria)| {
             let text = criteria.clone().unwrap_or_default();
-            quote! { ::jev_driver::Instructions::text(#text) }
+            quote! { #jev::Instructions::text(#text) }
         });
         quote! { ::std::vec![#(#entries),*] }
     } else {
         quote! { ::std::vec::Vec::new() }
     };
     let source = if all_static {
-        quote! { ::jev_driver::CriteriaSource::Static }
+        quote! { #jev::CriteriaSource::Static }
     } else {
-        quote! { ::jev_driver::CriteriaSource::Runtime }
+        quote! { #jev::CriteriaSource::Runtime }
     };
     let levels_lit = variants.len() as u8;
 
     Ok(quote! {
         #[automatically_derived]
-        impl ::jev_driver::ScoreLevels for #name {
+        impl #jev::ScoreLevels for #name {
             const ID: &'static str = #id_lit;
             const LEVELS: u8 = #levels_lit;
 
@@ -83,21 +84,21 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
         }
 
         #[derive(::core::fmt::Debug, ::core::clone::Clone)]
-        #vis struct #editor(pub ::std::vec::Vec<::jev_driver::Instructions>);
+        #vis struct #editor(pub ::std::vec::Vec<#jev::Instructions>);
 
         #[automatically_derived]
-        impl ::jev_driver::QuestionType for #name {
-            const KIND: ::jev_driver::QuestionKind = ::jev_driver::QuestionKind::Score;
-            type Decision = ::jev_driver::ScoreDecision<#name>;
+        impl #jev::QuestionType for #name {
+            const KIND: #jev::QuestionKind = #jev::QuestionKind::Score;
+            type Decision = #jev::ScoreDecision<#name>;
             type CriteriaEditor = #editor;
 
             fn question_id() -> &'static str {
                 #id_lit
             }
 
-            fn spec() -> ::jev_driver::QuestionSpec {
-                ::jev_driver::QuestionSpec::Score {
-                    instructions: ::jev_driver::Instructions::text(#instructions_lit),
+            fn spec() -> #jev::QuestionSpec {
+                #jev::QuestionSpec::Score {
+                    instructions: #jev::Instructions::text(#instructions_lit),
                     criteria: #static_vec,
                     criteria_source: #source,
                 }
@@ -105,16 +106,16 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             fn compose_wire(
                 editor: ::core::option::Option<&#editor>,
-            ) -> ::jev_driver::JevResult<::jev_driver::WireQuestion> {
+            ) -> #jev::JevResult<#jev::WireQuestion> {
                 match editor {
                     ::core::option::Option::Some(ed) => {
-                        ::jev_driver::question::score_editor_levels(
+                        #jev::__private::score_editor_levels(
                             #id_lit,
                             #levels_lit,
                             &ed.0,
                         )?;
-                        ::core::result::Result::Ok(::jev_driver::WireQuestion::Score {
-                            instructions: ::jev_driver::Instructions::text(#instructions_lit),
+                        ::core::result::Result::Ok(#jev::WireQuestion::Score {
+                            instructions: #jev::Instructions::text(#instructions_lit),
                             criteria: ed.0.clone(),
                         })
                     }
@@ -126,9 +127,9 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
 
             fn parse(
                 id: &str,
-                answer: &::jev_driver::Answer,
-            ) -> ::jev_driver::JevResult<Self::Decision> {
-                ::jev_driver::ScoreDecision::<#name>::parse(id, answer)
+                answer: &#jev::Answer,
+            ) -> #jev::JevResult<Self::Decision> {
+                #jev::ScoreDecision::<#name>::parse(id, answer)
             }
         }
     })

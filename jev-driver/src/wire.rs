@@ -30,11 +30,16 @@ impl Instructions {
     }
 
     /// True when the payload carries actual content (used by schema
-    /// validation to reject blank instructions).
+    /// validation to reject blank instructions). The structured form
+    /// is judged by its embedded `question` string: data fields alone
+    /// carry no question.
     pub fn is_non_empty(&self) -> bool {
         match self {
             Self::Text(s) => !s.trim().is_empty(),
-            Self::Structured(m) => !m.is_empty(),
+            Self::Structured(m) => m
+                .get("question")
+                .and_then(Value::as_str)
+                .is_some_and(|question| !question.trim().is_empty()),
             Self::Parts(p) => !p.is_empty(),
         }
     }

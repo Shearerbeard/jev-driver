@@ -6,12 +6,13 @@ use quote::quote;
 use syn::{Data, DeriveInput, Fields};
 
 use crate::serde_names::{self, KeyOutcome};
-use crate::util::{backtick_refs, jev_string_attrs, required};
+use crate::util::{backtick_refs, crate_path, jev_string_attrs, required};
 
 pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     let name = &input.ident;
     let attrs = jev_string_attrs(&input.attrs)?;
     let question = required(&attrs, "question", "JevInstructions", input)?;
+    let jev = crate_path()?;
 
     let Data::Struct(data) = &input.data else {
         return Err(syn::Error::new_spanned(
@@ -79,8 +80,8 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
             /// Serializes into the API's structured `instructions` form:
             /// this struct's fields become backtick-referenceable data
             /// alongside the embedded question.
-            pub fn to_instructions(&self) -> ::jev_driver::JevResult<::jev_driver::Instructions> {
-                ::jev_driver::Instructions::from_question(Self::QUESTION, self)
+            pub fn to_instructions(&self) -> #jev::JevResult<#jev::Instructions> {
+                #jev::Instructions::from_question(Self::QUESTION, self)
             }
         }
     })

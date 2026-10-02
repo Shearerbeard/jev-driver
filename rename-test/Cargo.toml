@@ -1,0 +1,15 @@
+[package]
+name = "rename-test"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Proves the derives expand under a renamed jev-driver dependency"
+publish = false
+
+[dependencies]
+jev = { package = "jev-driver", path = "../jev-driver" }
+serde = { workspace = true }
+
+[lints]
+workspace = true

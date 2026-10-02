@@ -29,21 +29,21 @@ fn derive(
     util::guarded(input.into(), expand).into()
 }
 
-/// Derives [`jev_driver::ChoiceOptions`] and [`jev_driver::QuestionType`]
+/// Derives `jev_driver::ChoiceOptions` and `jev_driver::QuestionType`
 /// for a choice question.
 #[proc_macro_derive(JevChoice, attributes(jev))]
 pub fn derive_jev_choice(input: TokenStream) -> TokenStream {
     derive(input, choice::expand)
 }
 
-/// Derives [`jev_driver::ScoreLevels`] and [`jev_driver::QuestionType`]
+/// Derives `jev_driver::ScoreLevels` and `jev_driver::QuestionType`
 /// for a score question.
 #[proc_macro_derive(JevScore, attributes(jev))]
 pub fn derive_jev_score(input: TokenStream) -> TokenStream {
     derive(input, score::expand)
 }
 
-/// Derives [`jev_driver::QuestionType`] for a noul question.
+/// Derives `jev_driver::QuestionType` for a noul question.
 #[proc_macro_derive(JevNoul, attributes(jev))]
 pub fn derive_jev_noul(input: TokenStream) -> TokenStream {
     derive(input, noul::expand)

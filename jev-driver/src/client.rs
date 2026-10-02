@@ -125,9 +125,9 @@ impl JevConfig {
     }
 
     /// Builds a config from the environment: `TYPESAFE_API_KEY`
-    /// (optional — no key means no bearer header), `TYPESAFE_BASE_URL`
+    /// (optional - no key means no bearer header), `TYPESAFE_BASE_URL`
     /// and `TYPESAFE_MODEL` (optional). Loads a workspace `.env` if
-    /// present.
+    /// present (requires the `dotenv` feature, on by default).
     pub fn from_env() -> JevResult<Self> {
         Self::from_env_named(EnvNames {
             api_key: Some("TYPESAFE_API_KEY"),
@@ -137,8 +137,10 @@ impl JevConfig {
     }
 
     /// Builds a config from caller-named environment variables; see
-    /// [`EnvNames`]. Loads a workspace `.env` if present.
+    /// [`EnvNames`]. Loads a workspace `.env` if present (requires the
+    /// `dotenv` feature, on by default).
     pub fn from_env_named(names: EnvNames<'_>) -> JevResult<Self> {
+        #[cfg(feature = "dotenv")]
         let _dotenv = dotenvy::dotenv();
         Self::from_sources(names, |name| std::env::var(name).ok())
     }
