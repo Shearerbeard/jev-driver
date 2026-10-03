@@ -292,22 +292,32 @@ response shape; a 404 means the endpoint path is wrong.
 
 ## Publishing (maintainers)
 
-Both crates publish from the workspace root, macros first - the runtime
-crate depends on it:
+Publishing is tag-driven: the tag names a version that already exists
+in the tree, and CI does the upload (`.github/workflows/publish.yml`).
+Pre-1.0 semver: breaking changes bump the minor (`0.1` -> `0.2`),
+everything else bumps the patch (`0.1.0` -> `0.1.1`).
+
+1. Bump `workspace.version` (both crates inherit it) and the
+   `=X.Y.Z` pin on `jev-driver-macros` in `jev-driver/Cargo.toml` -
+   they move in lockstep or CI refuses the tag.
+2. Add a dated `## [X.Y.Z]` entry to `CHANGELOG.md`.
+3. Run the gates (`make check`, `make red`, `make rename-test`),
+   commit, then:
 
 ```sh
-cargo publish --dry-run -p jev-driver-macros   # verify the tarball
-cargo publish -p jev-driver-macros
-cargo publish --dry-run -p jev-driver
-cargo publish -p jev-driver
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.2.0 && git push origin master v0.2.0
 ```
 
-After the upload: swap the Install snippet above to the crates.io line
-(`jev-driver = "0.1"`), date the `CHANGELOG.md` entry, and confirm
-docs.rs builds both crates. `testapp` stays local. The registry index
-can lag a minute or two behind the macros upload; if the runtime
-dry-run cannot resolve `jev-driver-macros`, wait and retry it.
+CI verifies tag, manifest, and changelog agree, runs the gates, and
+publishes macros before the runtime (order is mandatory). It needs the
+`CARGO_REGISTRY_TOKEN` repo secret (crates.io token with
+publish-new + publish-update scopes). The index-lag retry between the
+two uploads is built in.
+
+To publish by hand instead (the workflow logs show the same steps):
+`cargo publish -p jev-driver-macros`, wait for the index, then
+`cargo publish -p jev-driver`. `testapp` and `rename-test` are
+`publish = false` and stay local.
 
 ## License
 

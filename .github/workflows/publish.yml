@@ -1,0 +1,78 @@
+name: publish
+
+# Tag-driven publish: the tag names a version that already exists in
+# the tree. Bump workspace.version, the =X.Y.Z macros pin, and the
+# CHANGELOG entry in a commit, then tag vX.Y.Z; this workflow verifies
+# all three agree, runs the gates, and publishes macros before runtime.
+#
+# Pre-1.0 semver (documented convention): breaking changes bump the
+# minor (0.1 -> 0.2); additive changes and fixes bump the patch
+# (0.1.0 -> 0.1.1).
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  verify:
+    name: tag / manifest / changelog agree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name=="jev-driver") | .version')
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "::error::tag v$TAG does not match workspace version $VERSION"
+            exit 1
+          fi
+          PIN=$(grep -o 'jev-driver-macros = .*version = "=[0-9.]*"' jev-driver/Cargo.toml \
+            | grep -o '"=[0-9.]*"')
+          if [ "$PIN" != "\"=$TAG\"" ]; then
+            echo "::error::macros pin is $PIN but tag is v$TAG - bump jev-driver/Cargo.toml in lockstep"
+            exit 1
+          fi
+          if ! grep -q "^## \[$TAG\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$TAG]' entry"
+            exit 1
+          fi
+
+  gates:
+    name: fmt + clippy + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --features test-support -- -D warnings
+      - run: cargo test
+      - run: cargo test -p testapp
+      - run: cargo test -p rename-test
+
+  publish:
+    name: publish to crates.io
+    needs: [verify, gates]
+    runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Macros first (the runtime resolves it from the index)
+        run: cargo publish -p jev-driver-macros
+      - name: Wait for index propagation
+        run: |
+          for _ in $(seq 1 20); do
+            cargo publish -p jev-driver --dry-run && exit 0
+            echo "index has not caught up yet; retrying"
+            sleep 15
+          done
+          echo "::error::runtime dry-run never resolved jev-driver-macros"
+          exit 1
+      - name: Runtime
+        run: cargo publish -p jev-driver
