@@ -310,8 +310,8 @@ git tag v0.2.0 && git push origin master v0.2.0
 
 CI verifies tag, manifest, and changelog agree, runs the gates, and
 publishes macros before the runtime (order is mandatory). It needs the
-`CARGO_REGISTRY_TOKEN` repo secret (crates.io token with
-publish-new + publish-update scopes). The index-lag retry between the
+`CARGO_REGISTRY_TOKEN` repo secret (a crates.io token with
+publish-update scope). The index-lag retry between the
 two uploads is built in.
 
 To publish by hand instead (the workflow logs show the same steps):
