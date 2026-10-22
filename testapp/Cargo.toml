@@ -14,6 +14,9 @@ path = "src/main.rs"
 [dependencies]
 jev-driver = { path = "../jev-driver" }
 serde = { workspace = true }
+
+# The golden-request test compares wire JSON byte-for-byte, which needs the
+# state struct's field order kept.
 serde_json = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 url = { workspace = true }

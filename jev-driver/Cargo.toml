@@ -11,9 +11,16 @@ categories = ["api-bindings", "development-tools"]
 readme = "../README.md"
 
 [features]
-default = ["dotenv"]
+default = ["dotenv", "native-tls", "json-preserve-order"]
 test-support = []
 dotenv = ["dep:dotenvy"]
+json-preserve-order = ["serde_json/preserve_order"]
+
+# TLS backend for the HTTP client. `native-tls` is reqwest's default backend;
+# `rustls-tls` avoids the OpenSSL dependency (static and cross builds).
+# Build with `default-features = false` and pick one.
+native-tls = ["reqwest/default-tls"]
+rustls-tls = ["reqwest/rustls-tls"]
 
 [dependencies]
 serde = { workspace = true }
