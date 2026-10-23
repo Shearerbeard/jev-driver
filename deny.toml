@@ -1,6 +1,6 @@
 # License allow-list verified green against the full dependency tree
 # (cargo deny check: advisories, bans, licenses, sources all ok,
-# 2026-10-02). Re-run after any dependency bump.
+# 2026-10-23). Re-run after any dependency bump.
 [graph]
 all-features = true
 

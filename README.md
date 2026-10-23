@@ -23,6 +23,24 @@ Status: 0.1.0, [published on crates.io](https://crates.io/crates/jev-driver)
 jev-driver = "0.1"
 ```
 
+The HTTP client uses native TLS by default. For a build without OpenSSL,
+select rustls instead:
+
+```toml
+[dependencies]
+jev-driver = { version = "0.1", default-features = false, features = ["rustls-tls", "dotenv", "json-preserve-order"] }
+```
+
+`default-features = false` also drops the other defaults; add back the ones
+you need:
+
+- `dotenv` - `JevConfig::from_env` loads a workspace `.env`.
+- `json-preserve-order` - enables `serde_json`'s `preserve_order`, so the
+  state sent to Jev keeps your struct's field order. Without it, keys are
+  sorted alphabetically (the request is otherwise identical). Cargo unifies
+  features, so any crate in your build that enables `preserve_order` turns
+  it on for jev-driver too.
+
 The workspace clones with `testapp/`, an offline-runnable demo: `make red`
 replays a recorded response, `make live` calls the cloud API.
 
