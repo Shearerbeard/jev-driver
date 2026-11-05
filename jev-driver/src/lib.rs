@@ -16,6 +16,17 @@
 //! Strict by default: unknown option keys, unasked answers, missing
 //! criteria, and unnormalized distributions are all errors.
 
+// The derive macros resolve a `::jev_driver` path; this alias lets that path
+// resolve inside the crate's own targets, including doctests.
+#[doc(hidden)]
+extern crate self as jev_driver;
+
+// Collect doctests from the workspace README. Only fences marked runnable
+// are compiled; the walkthrough fragments are illustrative and marked ignore.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;
+
 pub mod answer;
 pub mod client;
 pub mod error;

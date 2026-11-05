@@ -9,14 +9,16 @@ use syn::DeriveInput;
 
 /// Resolves the consumer's path to the jev-driver runtime crate, so a
 /// renamed dependency (`jev = { package = "jev-driver" }`) still
-/// expands. `FoundCrate::Itself` (jev-driver's own test targets)
-/// resolves to `crate`, where the runtime's root re-exports live.
+/// expands. `FoundCrate::Itself` resolves to `::jev_driver`, which the
+/// crate root aliases to itself; doctests are separate crates that
+/// proc-macro-crate reports as the package itself, so `crate` would be
+/// wrong there.
 pub(crate) fn crate_path() -> syn::Result<TokenStream> {
     use proc_macro_crate::FoundCrate;
     use proc_macro_crate::crate_name;
 
     match crate_name("jev-driver") {
-        Ok(FoundCrate::Itself) => Ok(quote! { crate }),
+        Ok(FoundCrate::Itself) => Ok(quote! { ::jev_driver }),
         Ok(FoundCrate::Name(name)) => {
             let ident = format_ident!("{name}");
             Ok(quote! { ::#ident })
