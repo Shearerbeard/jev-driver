@@ -46,9 +46,9 @@ replays a recorded response, `make live` calls the cloud API.
 
 ## Quickstart: the derive surface
 
-Declare your state and questions as Rust types:
+Declare your state and questions as Rust types, then build and evaluate a decision:
 
-```rust
+```rust,no_run
 use jev_driver::prelude::*;
 use serde::Serialize;
 
@@ -99,13 +99,13 @@ struct TicketTriage {
     is_urgent: IsUrgent,
     frustration: Frustration,
 }
-```
 
-Build a decision, evaluate it, and match on your own enums:
-
-```rust
 #[tokio::main]
 async fn main() -> JevResult<()> {
+    let state = TicketState {
+        ticket: "My invoice is wrong and I need it fixed today".to_owned(),
+        sla_hours: 4.0,
+    };
     let decision = TicketTriage::request()
         .state(&state)?
         .build()?;
@@ -135,7 +135,7 @@ highest probability.
 Runtime criteria: any derive-level question can defer its rubric text to call
 time via `customize`, so tenant-specific wording doesn't change your types:
 
-```rust
+```rust,ignore
 let decision = TicketTriage::request()
     .state(&state)?
     .customize(|c| {
@@ -155,7 +155,7 @@ builds:
 
 Ad-hoc questions next to derived ones (`DynChoice`):
 
-```rust
+```rust,ignore
 let owner = DynChoice::new("owner", instructions)
     .option("dana", Instructions::text("Payments specialist"))
     .option("kai", Instructions::text("Integrations specialist"))
@@ -169,7 +169,7 @@ Whole schemas as serializable artifacts (`DecisionSchema`, the DMMF analog):
 load or author a JSON schema, compose a query against it, and bridge the
 raw answers back into derived types with `Answers::parse_as`:
 
-```rust
+```rust,ignore
 let schema = DecisionSchema::load("schemas/triage.json")?;
 let decision = schema.query().state(&state)?.ask("department")?.build()?;
 

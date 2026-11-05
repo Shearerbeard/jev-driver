@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Typed Rust driver for TypeSafe AI's Jev (System One) decision model"
 keywords = ["jev", "typesafe", "decision", "llm", "ai"]
 categories = ["api-bindings", "development-tools"]
-readme = "../README.md"
+readme = "README.md"
 
 [features]
 default = ["dotenv", "native-tls", "json-preserve-order"]
