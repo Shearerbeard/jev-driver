@@ -9,7 +9,7 @@ record are below; earlier waves (soundness close-out through 1bcb123,
 endpoint configurability, backtick serde-keys fix, dual-review
 hardening) live further down and in git history.
 
-## Publish-prep session (this file's current state)
+## Publish-prep session (history)
 
 Landed, all gates green (`make check` 31+6+ui, `make red` 11,
 `make rename-test` 1, fmt/clippy/-D warnings clean, `cargo doc -D
